@@ -174,11 +174,11 @@ export async function getTweets() {
     .from('tweets')
     .select(`
       *,
-      author:profiles!tweets_author_id_fkey (id, name, handle, color, verified),
+      author:profiles!tweets_author_id_fkey (id, name, handle, color, verified, avatar_url),
       media:tweet_media (id, url, type, position),
       comments:tweet_comments (
         id, text, created_at,
-        author:profiles!tweet_comments_author_id_fkey (id, name, handle)
+        author:profiles!tweet_comments_author_id_fkey (id, name, handle, avatar_url)
       )
     `)
     .order('created_at', { ascending: false });
@@ -385,7 +385,7 @@ export async function addComment({ tweetId, text }) {
   const { data, error } = await supabase
     .from('tweet_comments')
     .insert({ tweet_id: tweetId, author_id: user.id, text: text.trim() })
-    .select(`*, author:profiles!tweet_comments_author_id_fkey (id, name, handle)`)
+    .select(`*, author:profiles!tweet_comments_author_id_fkey (id, name, handle, avatar_url)`)
     .single();
   if (error) throw error;
   return data;

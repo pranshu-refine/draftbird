@@ -1165,10 +1165,16 @@ export default function App() {
   const refreshMe = async () => {
     if (!session?.user) return;
     try {
-      const p = await api.getProfile(session.user.id);
+      const [p, ps, ts, as] = await Promise.all([
+        api.getProfile(session.user.id),
+        api.getAllProfiles(),
+        api.getTweets(),     // re-pulls embedded author rows so feed avatars refresh
+        api.getArticles(),
+      ]);
       setMe(p);
-      const ps = await api.getAllProfiles();
       setProfiles(ps);
+      setTweets(ts);
+      setArticles(as);
     } catch (e) {
       showToast(e.message || 'Failed to refresh profile', <AlertCircle size={16} />, true);
     }

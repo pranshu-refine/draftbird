@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Article body — both rendered output and TipTap editor */
+.article-body {
+  color: #e7e9ea;
+  font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+  font-size: 18px;
+  line-height: 1.7;
+}
+.article-body p { margin: 0 0 1.1em; }
+.article-body h1 { font-size: 28px; font-weight: 800; margin: 1.4em 0 0.6em; line-height: 1.2; color: #fff; }
+.article-body h2 { font-size: 22px; font-weight: 700; margin: 1.3em 0 0.5em; line-height: 1.25; color: #fff; }
+.article-body h3 { font-size: 19px; font-weight: 700; margin: 1.2em 0 0.4em; color: #fff; }
+.article-body blockquote {
+  border-left: 3px solid #1d9bf0;
+  padding-left: 1em;
+  margin: 1.2em 0;
+  color: #a5acaf;
+  font-style: italic;
+}
+.article-body ul, .article-body ol { padding-left: 1.5em; margin: 0 0 1.1em; }
+.article-body ul { list-style: disc; }
+.article-body ol { list-style: decimal; }
+.article-body li { margin: 0.3em 0; }
+.article-body code {
+  background: #16181c;
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.article-body pre {
+  background: #16181c;
+  padding: 1em;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 0 0 1.1em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.article-body pre code { background: transparent; padding: 0; }
+.article-body img { max-width: 100%; border-radius: 8px; margin: 1.2em 0; }
+.article-body a { color: #1d9bf0; text-decoration: underline; }
+
+/* TipTap placeholder */
+.article-editor.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: #71767b;
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+.article-editor.ProseMirror { min-height: 320px; }
+.article-editor.ProseMirror:focus { outline: none; }

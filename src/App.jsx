@@ -1846,6 +1846,10 @@ function EditProfileModal({ open, me, onClose, onSaved, onAvatarUploaded, showTo
     }
   }, [open, me]);
 
+  const hasUnsaved = !!me && (name !== (me.name || '') || handle !== (me.handle || ''));
+  const safeClose = () => { if (!hasUnsaved && !uploading && !saving) onClose(); };
+  useEscapeKey(open, safeClose);
+
   if (!open) return null;
 
   const onPickFile = async (e) => {
@@ -1885,9 +1889,6 @@ function EditProfileModal({ open, me, onClose, onSaved, onAvatarUploaded, showTo
   };
 
   const previewPerson = { ...(me || {}), name, handle, avatar_url: preview };
-  const hasUnsaved = !!me && (name !== (me.name || '') || handle !== (me.handle || ''));
-  const safeClose = () => { if (!hasUnsaved && !uploading && !saving) onClose(); };
-  useEscapeKey(open, safeClose);
 
   return (
     <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-0 sm:p-4"

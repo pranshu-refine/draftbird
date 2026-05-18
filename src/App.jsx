@@ -247,10 +247,10 @@ function TweetCard({ tweet, me, isDecided, onApprove, onReject, onSave, onUndo, 
         style={{
           transform, transition: touchStart.current ? 'none' : 'transform 0.2s ease-out',
           touchAction: 'pan-y', borderBottom: '1px solid #2f3336',
-          background: tweet.urgent && !isDecided ? 'rgba(168,85,247,0.04)' : 'transparent',
+          background: tweet.urgent && !isDecided ? 'rgba(239,68,68,0.05)' : 'transparent',
         }}
         onMouseEnter={(e) => { if (!touchStart.current) e.currentTarget.style.background = 'rgba(231,233,234,0.03)'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.background = tweet.urgent && !isDecided ? 'rgba(168,85,247,0.04)' : 'transparent'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = tweet.urgent && !isDecided ? 'rgba(239,68,68,0.05)' : 'transparent'; }}
         onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
         <div className="flex gap-3">
           <Avatar person={author} />
@@ -264,7 +264,7 @@ function TweetCard({ tweet, me, isDecided, onApprove, onReject, onSave, onUndo, 
             </div>
 
             {tweet.urgent && !isDecided && (
-              <div className="mb-1 flex items-center gap-1 text-xs font-bold w-fit" style={{ color: '#c084fc' }}>
+              <div className="mb-1 flex items-center gap-1 text-xs font-bold w-fit" style={{ color: '#f87171' }}>
                 <Zap size={12} fill="currentColor" /> URGENT
               </div>
             )}
@@ -345,7 +345,7 @@ function ActionButton({ icon: Icon, label, hex, onClick, active }) {
   );
 }
 
-function ComposerPill({ icon: Icon, label, onClick, active, activeColor = '#a855f7', disabled, title }) {
+function ComposerPill({ icon: Icon, label, onClick, active, activeColor = '#ef4444', disabled, title }) {
   const [hover, setHover] = useState(false);
   const tinted = active;
   const bg = tinted
@@ -501,7 +501,7 @@ function InlineComposer({ me, onSubmit }) {
 
           {urgent && (
             <div className="mb-3 mt-3 flex items-center gap-2 px-3 py-1.5 rounded-full text-xs w-fit"
-                 style={{ background: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.3)', color: '#c084fc' }}>
+                 style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171' }}>
               <Zap size={12} fill="currentColor" /> Marked urgent — founders pinged immediately
             </div>
           )}
@@ -685,7 +685,7 @@ function ComposerModal({ open, onClose, onSubmit, me }) {
             )}
             {urgent && (
               <div className="mb-3 mt-3 flex items-center gap-2 px-3 py-2 rounded-full text-sm w-fit"
-                   style={{ background: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.3)', color: '#c084fc' }}>
+                   style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171' }}>
                 <Zap size={14} fill="currentColor" /> Marked as urgent
               </div>
             )}
@@ -1329,9 +1329,9 @@ export default function App() {
   // ── Sidebar nav
   const nav = [
     { key: 'home',      icon: Home,         label: 'Home',      badge: 0,                       filled: true, indicator: inFeed.length > 0 },
-    { key: 'urgent',    icon: Zap,          label: 'Urgent',    badge: urgentTweets.length,     filled: true, badgeColor: '#a855f7' },
-    { key: 'approved',  icon: CheckCircle2, label: 'Approved',  badge: approvedTweets.length,   filled: true, badgeColor: '#00ba7c' },
-    { key: 'rejected',  icon: XCircle,      label: 'Rejected',  badge: rejectedTweets.length,   filled: true, badgeColor: '#f4212e' },
+    { key: 'urgent',    icon: Zap,          label: 'Urgent',    badge: urgentTweets.length,     filled: true, badgeColor: '#ef4444', activeColor: '#ef4444' },
+    { key: 'approved',  icon: CheckCircle2, label: 'Approved',  badge: 0,                       filled: true },
+    { key: 'rejected',  icon: XCircle,      label: 'Rejected',  badge: 0,                       filled: true },
     { key: 'saved',     icon: Bookmark,     label: 'Bookmarks', badge: bookmarks.size,          filled: true },
     { key: 'analytics', icon: BarChart3,    label: 'Analytics', badge: 0 },
     { key: 'articles',  icon: Newspaper,    label: 'Articles',  badge: 0 },
@@ -1354,8 +1354,6 @@ export default function App() {
     <div className="min-h-screen" style={{ background: '#000', color: '#e7e9ea', fontFamily: '"Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, Roboto, Helvetica, Arial, sans-serif' }}>
       <style>{`
         @keyframes slideUp { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
-        @keyframes pulse-urgent { 0%, 100% { box-shadow: 0 0 0 0 rgba(168,85,247,0.5); } 50% { box-shadow: 0 0 0 6px rgba(168,85,247,0); } }
-        .urgent-pulse { animation: pulse-urgent 2s infinite; }
         .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
         .scrollbar-thin::-webkit-scrollbar-thumb { background: #2f3336; border-radius: 3px; }
         .nav-pill:hover { background: rgba(231,233,234,0.1) !important; }
@@ -1371,7 +1369,7 @@ export default function App() {
             {nav.map(item => (
               <button key={item.key} onClick={() => setView(item.key)}
                       className="nav-pill flex items-center gap-5 py-3 px-3 rounded-full transition-colors text-xl"
-                      style={{ color: '#e7e9ea', background: view === item.key ? 'rgba(231,233,234,0.1)' : 'transparent' }}>
+                      style={{ color: view === item.key && item.activeColor ? item.activeColor : '#e7e9ea', background: view === item.key ? 'rgba(231,233,234,0.1)' : 'transparent' }}>
                 <div className="relative shrink-0">
                   <item.icon size={26.25} strokeWidth={view === item.key ? 2.75 : 2} fill={view === item.key && item.filled ? 'currentColor' : 'none'} />
                   {item.indicator && (
@@ -1432,7 +1430,7 @@ export default function App() {
                 <div className="flex items-center gap-1.5 text-[13px] truncate" style={{ color: '#71767b' }}>
                   <span className="truncate">@{me.handle}</span>
                   {urgentTweets.length > 0 && (
-                    <span className="shrink-0 px-1.5 rounded text-[11px] font-bold leading-tight py-0.5" style={{ background: '#00ba7c33', color: '#00ba7c' }}>
+                    <span className="shrink-0 px-1.5 rounded text-[11px] font-bold leading-tight py-0.5" style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444' }}>
                       {urgentTweets.length}
                     </span>
                   )}
@@ -1465,7 +1463,7 @@ export default function App() {
                           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
                     {label}
                     {k === 'urgent' && urgentTweets.length > 0 && (
-                      <span className="px-1.5 rounded-full text-[11px] font-bold leading-tight py-0.5" style={{ background: '#a855f7', color: 'white' }}>
+                      <span className="px-1.5 rounded-full text-[11px] font-bold leading-tight py-0.5" style={{ background: '#ef4444', color: 'white' }}>
                         {urgentTweets.length}
                       </span>
                     )}
@@ -1497,21 +1495,6 @@ export default function App() {
           )}
 
           {view === 'home' && <InlineComposer me={me} onSubmit={handleSubmit} />}
-
-          {view === 'home' && feedTab === 'foryou' && urgentTweets.length > 0 && (
-            <button onClick={() => setFeedTab('urgent')}
-                    className="w-full px-4 py-3 flex items-center gap-3 text-left urgent-pulse"
-                    style={{ background: 'linear-gradient(to right, rgba(168,85,247,0.15), rgba(168,85,247,0.05), transparent)', borderBottom: '1px solid rgba(168,85,247,0.2)' }}>
-              <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: '#a855f7' }}>
-                <Zap size={16} fill="white" className="text-white" />
-              </div>
-              <div className="flex-1">
-                <div className="font-bold text-[15px]" style={{ color: '#c084fc' }}>{urgentTweets.length} urgent waiting</div>
-                <div className="text-[13px]" style={{ color: '#71767b' }}>time-sensitive — review first</div>
-              </div>
-              <ChevronRight size={20} style={{ color: '#c084fc' }} />
-            </button>
-          )}
 
           <div>
             {view === 'analytics' ? <AnalyticsView tweets={tweets} /> :
@@ -1563,7 +1546,7 @@ export default function App() {
             <h3 className="font-black text-xl mb-3" style={{ color: '#e7e9ea' }}>Queue overview</h3>
             <div className="space-y-3">
               <SnapshotRow label="In the feed" value={inFeed.length} dot="#71767b" onClick={() => setView('home')} />
-              <SnapshotRow label="Urgent waiting" value={urgentTweets.length} dot="#a855f7" onClick={() => setView('urgent')} />
+              <SnapshotRow label="Urgent waiting" value={urgentTweets.length} dot="#ef4444" onClick={() => setView('urgent')} />
               <SnapshotRow label="With notes" value={commentedPending.length} dot="#ffd400" onClick={() => setView('home')} />
               <SnapshotRow label="Approved" value={approvedTweets.length} dot="#00ba7c" onClick={() => setView('approved')} />
               <SnapshotRow label="Rejected" value={rejectedTweets.length} dot="#f4212e" onClick={() => setView('rejected')} />
@@ -1599,12 +1582,12 @@ export default function App() {
            style={{ background: 'rgba(0,0,0,0.95)', borderTop: '1px solid #2f3336', backdropFilter: 'blur(12px)' }}>
         {[
           { key: 'home', icon: Home, filled: true, badge: 0 },
-          { key: 'urgent', icon: Zap, filled: true, badge: urgentTweets.length, color: '#a855f7' },
-          { key: 'approved', icon: CheckCircle2, filled: true, badge: approvedTweets.length, color: '#00ba7c' },
-          { key: 'rejected', icon: XCircle, filled: true, badge: rejectedTweets.length, color: '#f4212e' },
+          { key: 'urgent', icon: Zap, filled: true, badge: urgentTweets.length, color: '#ef4444', activeColor: '#ef4444' },
+          { key: 'approved', icon: CheckCircle2, filled: true, badge: 0 },
+          { key: 'rejected', icon: XCircle, filled: true, badge: 0 },
         ].map(item => (
           <button key={item.key} onClick={() => setView(item.key)} className="relative p-3"
-                  style={{ color: view === item.key ? '#e7e9ea' : '#71767b' }}>
+                  style={{ color: view === item.key ? (item.activeColor || '#e7e9ea') : '#71767b' }}>
             <item.icon size={24} strokeWidth={view === item.key ? 2.5 : 2} fill={view === item.key && item.filled ? 'currentColor' : 'none'} />
             {item.badge > 0 && (
               <span className="absolute top-1 right-1 min-w-[16px] h-[16px] rounded-full text-[10px] font-bold flex items-center justify-center px-1"
@@ -1687,7 +1670,7 @@ function AnalyticsView({ tweets }) {
 
   const cards = [
     { label: 'Pending review',  value: stats.pending,  icon: Clock,        hex: '#71767b' },
-    { label: 'Urgent waiting',  value: stats.urgent,   icon: Zap,          hex: '#a855f7' },
+    { label: 'Urgent waiting',  value: stats.urgent,   icon: Zap,          hex: '#ef4444' },
     { label: 'Approved',        value: stats.approved, icon: CheckCircle2, hex: '#00ba7c' },
     { label: 'Rejected',        value: stats.rejected, icon: X,            hex: '#f4212e' },
     { label: 'Approval rate',   value: `${stats.rate}%`, icon: TrendingUp, hex: '#1d9bf0' },
@@ -2125,7 +2108,7 @@ function ArticleCard({ article, me, onOpen, onApprove, onReject }) {
             <ArticleStatusPill status={article.status} />
             {article.urgent && (
               <span className="px-2 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1"
-                    style={{ background: 'rgba(168,85,247,0.15)', color: '#c084fc' }}>
+                    style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171' }}>
                 <Zap size={10} fill="currentColor" /> Urgent
               </span>
             )}
@@ -2425,7 +2408,7 @@ function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, 
           </div>
           {article.urgent && (
             <span className="px-2 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1"
-                  style={{ background: 'rgba(168,85,247,0.15)', color: '#c084fc' }}>
+                  style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171' }}>
               <Zap size={10} fill="currentColor" /> Urgent
             </span>
           )}

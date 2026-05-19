@@ -13,7 +13,7 @@ import {
   User as UserIcon, Eye, EyeOff, Undo2, AlertCircle, Lock, Camera,
   TrendingUp, Users, ChevronRight, MoreHorizontal as More,
   Newspaper, Bold, Italic, Heading1, Heading2, Quote, List, ListOrdered, Code, ImagePlus,
-  Pencil, ChevronLeft
+  Pencil, ChevronLeft, Heart, Repeat2, Share2, Maximize2, Minimize2
 } from 'lucide-react';
 
 import * as api from './lib/api';
@@ -2507,6 +2507,7 @@ function ArticleComposer({ open, me, onClose, onSubmit }) {
 
 function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, onUndo, onOpenComments }) {
   const article = articleId ? articles.find(a => a.id === articleId) : null;
+  const [expanded, setExpanded] = useState(false);
   useEscapeKey(!!article, onClose);
   if (!article) return null;
 
@@ -2523,6 +2524,8 @@ function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, 
     } catch { /* clipboard blocked */ }
   };
 
+  const colWidth = expanded ? 'max-w-5xl' : 'max-w-3xl';
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto" style={{ background: '#000' }}>
       <header className="sticky top-0 z-30 backdrop-blur-xl flex items-center gap-2 px-4 py-3"
@@ -2531,10 +2534,18 @@ function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, 
           <ArrowLeft size={20} />
         </button>
         <div className="font-bold text-[17px]" style={{ color: '#e7e9ea' }}>Article</div>
+        <button onClick={() => setExpanded(v => !v)}
+                className="ml-auto p-2 -mr-2 rounded-full transition-colors"
+                style={{ color: '#e7e9ea' }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(231,233,234,0.1)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                title={expanded ? 'Collapse' : 'Expand'}>
+          {expanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+        </button>
       </header>
 
-      <article className="max-w-3xl mx-auto px-6 py-6">
-        {/* Author row — before cover image */}
+      <article className={`${colWidth} mx-auto px-6 py-6`}>
+        {/* Author row */}
         <div className="flex items-center gap-3 mb-4">
           <Avatar person={author} size={40} />
           <div className="flex-1 min-w-0">
@@ -2546,26 +2557,20 @@ function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, 
               @{author.handle} · {new Date(article.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} · {rt.minutes} min read
             </div>
           </div>
-        </div>
-
-        {/* Inline status pill + urgent badge */}
-        <div className="flex items-center gap-2 mb-5">
-          <ArticleStatusPill status={article.status} />
           {article.urgent && (
-            <span className="px-2 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1"
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1 shrink-0"
                   style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171' }}>
               <Zap size={10} fill="currentColor" /> Urgent
             </span>
           )}
         </div>
 
-        {/* Cover image */}
+        {/* Cover image — fills column edge to edge */}
         {article.cover_image_url && (
-          <div className="w-full mb-6 rounded-2xl overflow-hidden"
-               style={{ border: '1px solid #2f3336' }}>
+          <div className="w-full my-4 rounded-2xl overflow-hidden"
+               style={{ aspectRatio: '16/9', minHeight: 280, maxHeight: 400 }}>
             <img src={article.cover_image_url} alt=""
-                 className="w-full object-cover"
-                 style={{ maxHeight: 400 }} />
+                 className="w-full h-full object-cover" />
           </div>
         )}
 
@@ -2588,10 +2593,10 @@ function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, 
 
         <div className="article-body" dangerouslySetInnerHTML={{ __html: article.content || '<p><em>Empty article.</em></p>' }} />
 
-        {/* Action bar — comment + approve/reject (or status) + views + share */}
+        {/* Action bar — matches TweetCard. Approve/Reject replace heart/retweet for pending non-authors. */}
         <div className="mt-10 pt-3 flex items-center justify-between"
              style={{ borderTop: '1px solid #2f3336' }}>
-          <div className="flex items-center gap-1 sm:gap-3">
+          <div className="flex items-center gap-1 sm:gap-2">
             <ActionButton icon={MessageCircle} label={commentCount || ''} hex="#1d9bf0"
                           onClick={() => onOpenComments(article)} />
 
@@ -2616,16 +2621,20 @@ function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, 
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-2 px-2 text-sm" style={{ color: '#71767b' }}>
-                <Clock size={16} /> <span className="font-semibold">Pending review</span>
-              </div>
+              // Pending self-authored — no approve buttons but keep the slot informative
+              <ActionButton icon={Repeat2} label="" hex="#00ba7c" onClick={() => {}} />
+            )}
+
+            {!canAct && !isDecided && (
+              <ActionButton icon={Heart} label="" hex="#f91880" onClick={() => {}} />
             )}
           </div>
 
-          <div className="flex items-center gap-1 sm:gap-3">
+          <div className="flex items-center gap-1 sm:gap-2">
             <ActionButton icon={BarChart3} label={rt.words.toLocaleString()} hex="#1d9bf0"
                           onClick={() => {}} />
-            <ActionButton icon={Send} hex="#1d9bf0" onClick={handleCopyLink} />
+            <ActionButton icon={Bookmark} hex="#ffd400" onClick={() => {}} />
+            <ActionButton icon={Share2} hex="#1d9bf0" onClick={handleCopyLink} />
           </div>
         </div>
       </article>

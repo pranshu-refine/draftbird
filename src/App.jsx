@@ -13,7 +13,7 @@ import {
   User as UserIcon, Eye, EyeOff, Undo2, AlertCircle, Lock, Camera,
   TrendingUp, Users, ChevronRight, MoreHorizontal as More,
   Newspaper, Bold, Italic, Heading1, Heading2, Quote, List, ListOrdered, Code, ImagePlus,
-  Pencil, ChevronLeft, Heart, Repeat2, Share2, Maximize2, Minimize2
+  Pencil, ChevronLeft, Heart, Repeat2, Share2
 } from 'lucide-react';
 
 import * as api from './lib/api';
@@ -1251,6 +1251,19 @@ export default function App() {
   const [articles, setArticles] = useState([]);
   const [articleComposerOpen, setArticleComposerOpen] = useState(false);
   const [articleReaderId, setArticleReaderId] = useState(null);
+  // When the user opens an article, we remember which view they came from so the
+  // back button can return them there. View 'article-reader' is rendered inline
+  // in the main column — it does not overlay the sidebars.
+  const [articleReaderPrevView, setArticleReaderPrevView] = useState('home');
+  const openArticleReader = (id) => {
+    setArticleReaderId(id);
+    setArticleReaderPrevView(view);
+    setView('article-reader');
+  };
+  const closeArticleReader = () => {
+    setView(articleReaderPrevView);
+    setArticleReaderId(null);
+  };
   const [bookmarks, setBookmarks] = useState(new Set());
   const [view, setView] = useState('home');
   const [feedTab, setFeedTab] = useState('foryou');
@@ -1703,6 +1716,7 @@ export default function App() {
         {/* CENTER */}
         <main className="flex-1 min-w-0 min-h-screen pb-16 sm:pb-0"
               style={{ borderLeft: '1px solid #2f3336', borderRight: '1px solid #2f3336', maxWidth: 600 }}>
+          {view !== 'article-reader' && (
           <header className="sticky top-0 z-30 backdrop-blur-xl" style={{ background: 'rgba(0,0,0,0.65)' }}>
             <div className="px-4 py-3.5 flex items-center justify-between" style={{ borderBottom: view === 'home' ? 'none' : '1px solid #2f3336' }}>
               <h2 className="font-black text-xl" style={{ color: '#e7e9ea' }}>{viewTitles[view]}</h2>
@@ -1732,6 +1746,7 @@ export default function App() {
               </div>
             )}
           </header>
+          )}
 
           {view === 'home' && notifPermission === 'default' && !notifBannerDismissed && (
             <div className="px-4 py-3 flex items-center gap-3"
@@ -1756,13 +1771,21 @@ export default function App() {
           {view === 'home' && <InlineComposer me={me} onSubmit={handleSubmit} />}
 
           <div>
-            {view === 'analytics' ? <AnalyticsView tweets={tweets} /> :
+            {view === 'article-reader' ? (
+              <ArticleReader articleId={articleReaderId} articles={articles} me={me}
+                             onClose={closeArticleReader}
+                             onApprove={handleApproveArticle}
+                             onReject={handleRejectArticle}
+                             onUndo={handleUndoArticle}
+                             onOpenComments={(article) => setCommentTarget({ ...article, type: 'article' })} />
+            ) :
+             view === 'analytics' ? <AnalyticsView tweets={tweets} /> :
              view === 'profile'   ? <ProfileView me={me} onLogout={handleLogout} onEdit={() => setEditProfileOpen(true)} tweets={tweets.filter(t => t.author_id === me.id)} /> :
              filteredFeed.length > 0 ? (
                filteredFeed.map(item => (
                  item.type === 'article' ? (
                    <ArticleFeedCard key={`a-${item.id}`} article={item} me={me}
-                                    onOpen={() => setArticleReaderId(item.id)}
+                                    onOpen={() => openArticleReader(item.id)}
                                     onApprove={handleApproveArticle}
                                     onReject={handleRejectArticle}
                                     onUndo={handleUndoArticle}
@@ -1884,16 +1907,6 @@ export default function App() {
         me={me}
         onClose={() => setArticleComposerOpen(false)}
         onSubmit={handleArticleSubmit}
-      />
-      <ArticleReader
-        articleId={articleReaderId}
-        articles={articles}
-        me={me}
-        onClose={() => setArticleReaderId(null)}
-        onApprove={handleApproveArticle}
-        onReject={handleRejectArticle}
-        onUndo={handleUndoArticle}
-        onOpenComments={(article) => setCommentTarget({ ...article, type: 'article' })}
       />
       <Lightbox lightbox={lightbox}
                 setIndex={(i) => setLightbox(lb => lb ? { ...lb, index: i } : lb)}
@@ -2505,11 +2518,18 @@ function ArticleComposer({ open, me, onClose, onSubmit }) {
   );
 }
 
+// Inline article view — rendered in the main feed column when view === 'article-reader'.
+// It does NOT overlay the page; left and right sidebars stay visible and clickable.
 function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, onUndo, onOpenComments }) {
   const article = articleId ? articles.find(a => a.id === articleId) : null;
-  const [expanded, setExpanded] = useState(false);
   useEscapeKey(!!article, onClose);
-  if (!article) return null;
+  if (!article) {
+    return (
+      <div className="p-6 text-center text-sm" style={{ color: '#71767b' }}>
+        Article not found.
+      </div>
+    );
+  }
 
   const author = article.author || { name: 'Unknown', handle: 'unknown', color: '#71767b' };
   const rt = readingTime(article.content);
@@ -2524,27 +2544,21 @@ function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, 
     } catch { /* clipboard blocked */ }
   };
 
-  const colWidth = expanded ? 'max-w-5xl' : 'max-w-3xl';
-
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto" style={{ background: '#000' }}>
+    <div>
+      {/* Sticky header inside the main column */}
       <header className="sticky top-0 z-30 backdrop-blur-xl flex items-center gap-2 px-4 py-3"
               style={{ background: 'rgba(0,0,0,0.65)', borderBottom: '1px solid #2f3336' }}>
-        <button onClick={onClose} className="p-2 -ml-2 rounded-full" style={{ color: '#e7e9ea' }}>
+        <button onClick={onClose} className="p-2 -ml-2 rounded-full transition-colors"
+                style={{ color: '#e7e9ea' }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(231,233,234,0.1)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
           <ArrowLeft size={20} />
         </button>
         <div className="font-bold text-[17px]" style={{ color: '#e7e9ea' }}>Article</div>
-        <button onClick={() => setExpanded(v => !v)}
-                className="ml-auto p-2 -mr-2 rounded-full transition-colors"
-                style={{ color: '#e7e9ea' }}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(231,233,234,0.1)'}
-                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                title={expanded ? 'Collapse' : 'Expand'}>
-          {expanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-        </button>
       </header>
 
-      <article className={`${colWidth} mx-auto px-6 py-6`}>
+      <article className="px-4 py-4">
         {/* Author row */}
         <div className="flex items-center gap-3 mb-4">
           <Avatar person={author} size={40} />
@@ -2565,21 +2579,21 @@ function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, 
           )}
         </div>
 
-        {/* Cover image — fills column edge to edge */}
+        {/* Cover image — fills the column edge-to-edge with no horizontal gaps */}
         {article.cover_image_url && (
           <div className="w-full my-4 rounded-2xl overflow-hidden"
-               style={{ aspectRatio: '16/9', minHeight: 280, maxHeight: 400 }}>
+               style={{ aspectRatio: '16/9', maxHeight: 360 }}>
             <img src={article.cover_image_url} alt=""
                  className="w-full h-full object-cover" />
           </div>
         )}
 
         <h1 className="font-extrabold mb-3"
-            style={{ color: '#e7e9ea', fontSize: 40, lineHeight: 1.15, fontFamily: 'Georgia, serif' }}>
+            style={{ color: '#e7e9ea', fontSize: 30, lineHeight: 1.15, fontFamily: 'Georgia, serif' }}>
           {article.title}
         </h1>
         {article.subtitle && (
-          <p className="mb-6" style={{ color: '#71767b', fontSize: 22, fontFamily: 'Georgia, serif' }}>
+          <p className="mb-6" style={{ color: '#71767b', fontSize: 18, fontFamily: 'Georgia, serif' }}>
             {article.subtitle}
           </p>
         )}
@@ -2596,7 +2610,7 @@ function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, 
         {/* Action bar — matches TweetCard. Approve/Reject replace heart/retweet for pending non-authors. */}
         <div className="mt-10 pt-3 flex items-center justify-between"
              style={{ borderTop: '1px solid #2f3336' }}>
-          <div className="flex items-center gap-1 sm:gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 -ml-2">
             <ActionButton icon={MessageCircle} label={commentCount || ''} hex="#1d9bf0"
                           onClick={() => onOpenComments(article)} />
 
@@ -2621,7 +2635,6 @@ function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, 
                 </button>
               </div>
             ) : (
-              // Pending self-authored — no approve buttons but keep the slot informative
               <ActionButton icon={Repeat2} label="" hex="#00ba7c" onClick={() => {}} />
             )}
 
@@ -2630,7 +2643,7 @@ function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, 
             )}
           </div>
 
-          <div className="flex items-center gap-1 sm:gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 -mr-2">
             <ActionButton icon={BarChart3} label={rt.words.toLocaleString()} hex="#1d9bf0"
                           onClick={() => {}} />
             <ActionButton icon={Bookmark} hex="#ffd400" onClick={() => {}} />

@@ -282,6 +282,21 @@ export async function deleteTweet(id) {
   if (error) throw error;
 }
 
+/**
+ * Returns tweets + articles in a single chronological list, each tagged
+ * with a `type` discriminator ('tweet' | 'article'). Sorted desc by created_at.
+ * Used by the main feed views (Home / Urgent / Approved / Rejected / Bookmarks).
+ */
+export async function getFeedItems() {
+  const [tweets, articles] = await Promise.all([getTweets(), getArticles()]);
+  const tagged = [
+    ...tweets.map(t => ({ ...t, type: 'tweet' })),
+    ...articles.map(a => ({ ...a, type: 'article' })),
+  ];
+  tagged.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  return tagged;
+}
+
 // ── Articles ─────────────────────────────────────────────────────
 
 export async function getArticles() {

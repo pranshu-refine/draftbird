@@ -32,3 +32,5 @@ zzz/
 *.njsproj
 *.sln
 *.sw?
+
+.vercel

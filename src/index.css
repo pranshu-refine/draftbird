@@ -43,6 +43,10 @@
 .article-body img { max-width: 100%; border-radius: 8px; margin: 1.2em 0; }
 .article-body a { color: #1d9bf0; text-decoration: underline; }
 
+/* "Show more" / "Show less" link in TweetCard / ArticleFeedCard */
+.show-more-link { text-decoration: none; }
+.show-more-link:hover { text-decoration: underline; }
+
 /* TipTap placeholder */
 .article-editor.ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);

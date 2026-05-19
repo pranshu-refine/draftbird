@@ -19,6 +19,7 @@ import {
 import * as api from './lib/api';
 import { Logo } from './components/Logo';
 import CropModal from './components/CropModal';
+import TextareaAutosize from 'react-textarea-autosize';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -211,10 +212,15 @@ function timeAgo(iso) {
 function TweetCard({ tweet, me, isDecided, onApprove, onReject, onSave, onUndo, savedIds, onOpenComments, onOpenLightbox }) {
   const [swipeX, setSwipeX] = useState(0);
   const [exiting, setExiting] = useState(null);
+  const [isExpanded, setIsExpanded] = useState(false);
   const touchStart = useRef(null);
   const isSaved = savedIds.has(tweet.id);
   const canAct = !isDecided;
   const author = tweet.author || { name: 'Unknown', handle: 'unknown', color: '#71767b' };
+
+  const content = tweet.content || '';
+  const isLong = content.length > TWEET_SOFT_LIMIT;
+  const displayText = !isLong || isExpanded ? content : truncateAtWord(content, TWEET_SOFT_LIMIT);
 
   const handleTouchStart = (e) => { if (!canAct) return; touchStart.current = e.touches[0].clientX; };
   const handleTouchMove = (e) => {
@@ -269,7 +275,17 @@ function TweetCard({ tweet, me, isDecided, onApprove, onReject, onSave, onUndo, 
               </div>
             )}
 
-            <div className="text-[15px] whitespace-pre-wrap leading-snug" style={{ color: '#e7e9ea' }}>{tweet.content}</div>
+            <div className="text-[15px] whitespace-pre-wrap leading-snug" style={{ color: '#e7e9ea' }}>
+              {displayText}
+              {isLong && !isExpanded && '… '}
+              {isLong && (
+                <button onClick={(e) => { e.stopPropagation(); setIsExpanded(v => !v); }}
+                        className="show-more-link"
+                        style={{ color: '#1d9bf0', background: 'none', padding: 0, border: 'none', cursor: 'pointer' }}>
+                  {isExpanded ? 'Show less' : 'Show more'}
+                </button>
+              )}
+            </div>
             <MediaGrid items={tweet.media} context="feed"
                        onItemClick={onOpenLightbox ? (i) => onOpenLightbox(tweet.media, i) : undefined} />
 
@@ -330,6 +346,110 @@ function TweetCard({ tweet, me, isDecided, onApprove, onReject, onSave, onUndo, 
   );
 }
 
+// X-style article card inside the main feed. Shows author row, cover image,
+// title, subtitle, status pill, and (for pending items) approve/reject/comment
+// buttons mirroring TweetCard. Whole card opens the ArticleReader modal.
+function ArticleFeedCard({ article, me, onOpen, onApprove, onReject, onUndo }) {
+  const author = article.author || { name: 'Unknown', handle: 'unknown', color: '#71767b' };
+  const isPending = article.status === 'pending';
+  const isDecided = article.status === 'approved' || article.status === 'rejected';
+  const canAct = isPending && article.author_id !== me.id;
+
+  return (
+    <article
+      onClick={onOpen}
+      className="px-4 py-3 cursor-pointer transition-colors"
+      style={{
+        borderBottom: '1px solid #2f3336',
+        background: article.urgent && !isDecided ? 'rgba(239,68,68,0.05)' : 'transparent',
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(231,233,234,0.03)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = article.urgent && !isDecided ? 'rgba(239,68,68,0.05)' : 'transparent'; }}>
+      <div className="flex gap-3">
+        <Avatar person={author} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1 text-[15px]">
+            <span className="font-bold truncate hover:underline" style={{ color: '#e7e9ea' }}>{author.name}</span>
+            {author.verified && <VerifiedBadge />}
+            <span className="truncate" style={{ color: '#71767b' }}>@{author.handle}</span>
+            <span style={{ color: '#71767b' }}>·</span>
+            <span className="hover:underline" style={{ color: '#71767b' }}>{timeAgo(article.created_at)}</span>
+          </div>
+
+          {article.urgent && !isDecided && (
+            <div className="mb-1 flex items-center gap-1 text-xs font-bold w-fit" style={{ color: '#f87171' }}>
+              <Zap size={12} fill="currentColor" /> URGENT
+            </div>
+          )}
+
+          {article.cover_image_url && (
+            <div className="mt-2 rounded-2xl overflow-hidden"
+                 style={{ border: '1px solid #2f3336', maxHeight: 280 }}>
+              <img src={article.cover_image_url} alt=""
+                   className="w-full object-cover"
+                   style={{ maxHeight: 280 }} />
+            </div>
+          )}
+
+          <div className="mt-2 font-bold text-[17px] leading-tight" style={{ color: '#e7e9ea' }}>
+            {article.title || 'Untitled'}
+          </div>
+          {article.subtitle && (
+            <div className="mt-1 text-sm leading-snug line-clamp-2" style={{ color: '#71767b' }}>
+              {article.subtitle}
+            </div>
+          )}
+
+          <div className="mt-2 flex items-center gap-2">
+            <ArticleStatusPill status={article.status} />
+            <span className="text-xs" style={{ color: '#71767b' }}>· Article</span>
+          </div>
+
+          {article.status === 'rejected' && article.rejection_note && (
+            <div className="mt-3 px-3 py-2 rounded-lg text-sm"
+                 style={{ background: 'rgba(244,33,46,0.1)', border: '1px solid rgba(244,33,46,0.2)', color: '#ff8e95' }}>
+              <span className="font-semibold">Rejected: </span>{article.rejection_note}
+            </div>
+          )}
+
+          <div className="mt-3 flex items-center justify-between max-w-md -ml-2">
+            {canAct ? (
+              <>
+                <ActionButton icon={Check} label="Approve" hex="#00ba7c"
+                              onClick={() => onApprove(article.id)} />
+                <ActionButton icon={X} label="Reject" hex="#f4212e"
+                              onClick={() => onReject(article.id)} />
+                <ActionButton icon={MessageCircle} label="" hex="#1d9bf0"
+                              onClick={() => onOpen()} />
+              </>
+            ) : isDecided ? (
+              <>
+                <div className="flex items-center gap-2 text-sm pl-2"
+                     style={{ color: article.status === 'approved' ? '#00ba7c' : '#f4212e' }}>
+                  {article.status === 'approved' ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+                  <span className="font-semibold">{article.status === 'approved' ? 'Approved' : 'Rejected'}</span>
+                </div>
+                <button onClick={(e) => { e.stopPropagation(); onUndo(article.id); }}
+                        className="text-sm font-semibold flex items-center gap-1.5 px-3 py-1 rounded-full transition"
+                        style={{ color: '#1d9bf0' }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(29,155,240,0.1)'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                  <Undo2 size={14} /> Undo
+                </button>
+              </>
+            ) : (
+              // Pending but authored by self — show status only, no action buttons
+              <div className="flex items-center gap-2 text-sm pl-2" style={{ color: '#71767b' }}>
+                <Clock size={16} /> <span className="font-semibold">Pending review</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 function ActionButton({ icon: Icon, label, hex, onClick, active }) {
   const [hover, setHover] = useState(false);
   return (
@@ -343,6 +463,70 @@ function ActionButton({ icon: Icon, label, hex, onClick, active }) {
       {label !== undefined && label !== '' && <span className="px-1">{label}</span>}
     </button>
   );
+}
+
+// ════════════════════════════════════════════════════════════════
+//  Composer (inline + modal)
+// ════════════════════════════════════════════════════════════════
+
+const TWEET_MAX = 25000;
+const TWEET_SOFT_LIMIT = 280;
+const RING_VISIBLE_AT = 250;
+
+// X-style character ring: invisible until 250, blue ring while typing toward 280,
+// after 280 the ring is full + a numeric count appears, after 25K it turns red.
+function CharCounter({ length, max = TWEET_MAX, soft = TWEET_SOFT_LIMIT }) {
+  if (length < RING_VISIBLE_AT) return null;
+  const over = length > max;
+  const ratio = over ? 1 : Math.min(length / soft, 1);
+  const ring = '#1d9bf0';
+  const danger = '#f4212e';
+  const color = over ? danger : ring;
+  const r = 9;
+  const c = 2 * Math.PI * r;
+  const dash = c * ratio;
+  const showNum = length > soft;
+  const remaining = max - length;
+  const numText = over
+    ? `${remaining}`
+    : remaining.toLocaleString();
+  return (
+    <div className="flex items-center gap-2">
+      <svg width="22" height="22" viewBox="0 0 22 22" style={{ overflow: 'visible' }}>
+        <circle cx="11" cy="11" r={r} fill="none" stroke="#2f3336" strokeWidth="2" />
+        <circle cx="11" cy="11" r={r} fill="none" stroke={color} strokeWidth="2"
+                strokeDasharray={`${dash} ${c}`} strokeLinecap="round"
+                transform="rotate(-90 11 11)" />
+      </svg>
+      {showNum && (
+        <span className="text-sm tabular-nums" style={{ color: over ? danger : '#71767b' }}>
+          {numText}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// Walk back from the soft limit to the nearest whitespace so truncation lands on a word.
+function truncateAtWord(text, limit = TWEET_SOFT_LIMIT) {
+  if (text.length <= limit) return text;
+  const slice = text.slice(0, limit);
+  const lastSpace = slice.search(/\s\S*$/);
+  return (lastSpace > limit * 0.6 ? slice.slice(0, lastSpace) : slice).trimEnd();
+}
+
+// Pull image files out of a paste event's clipboardData. Returns array of File.
+function extractPastedImages(e) {
+  const items = e.clipboardData?.items;
+  if (!items) return [];
+  const files = [];
+  for (const item of items) {
+    if (item.kind === 'file' && (item.type || '').startsWith('image/')) {
+      const f = item.getAsFile();
+      if (f) files.push(f);
+    }
+  }
+  return files;
 }
 
 function ComposerPill({ icon: Icon, label, onClick, active, activeColor = '#ef4444', disabled, title }) {
@@ -366,10 +550,6 @@ function ComposerPill({ icon: Icon, label, onClick, active, activeColor = '#ef44
   );
 }
 
-// ════════════════════════════════════════════════════════════════
-//  Composer (inline + modal)
-// ════════════════════════════════════════════════════════════════
-
 function InlineComposer({ me, onSubmit }) {
   const [text, setText] = useState('');
   const [urgent, setUrgent] = useState(false);
@@ -379,9 +559,8 @@ function InlineComposer({ me, onSubmit }) {
   const [posting, setPosting] = useState(false);
   const [cropping, setCropping] = useState(null); // { file, editIndex, initialAlt, initialAspectMode }
   const fileInputRef = useRef(null);
-  const MAX = 280;
-  const remaining = MAX - text.length;
-  const canPost = (text.trim().length > 0 || media.length > 0) && !posting;
+  const overLimit = text.length > TWEET_MAX;
+  const canPost = (text.trim().length > 0 || media.length > 0) && !posting && !overLimit;
 
   useEffect(() => () => media.forEach(m => URL.revokeObjectURL(m.previewUrl)), []); // cleanup on unmount
 
@@ -402,6 +581,13 @@ function InlineComposer({ me, onSubmit }) {
         aspectMode: null,
       })),
     ]);
+  };
+
+  const onPaste = (e) => {
+    const imgs = extractPastedImages(e);
+    if (imgs.length === 0) return;
+    e.preventDefault();
+    handleFiles(imgs);
   };
 
   const handleCropApply = ({ blob, aspectRatio, aspectMode, altText }) => {
@@ -479,20 +665,21 @@ function InlineComposer({ me, onSubmit }) {
   );
 
   return (
-    <div className="px-4 py-3" style={{ borderBottom: '1px solid #2f3336' }}>
+    <div className="px-4 py-3" style={{ borderBottom: '1px solid #2f3336' }} onPaste={onPaste}>
       <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple style={{ display: 'none' }}
              onChange={(e) => { handleFiles(e.target.files); e.target.value = ''; }} />
       <div className="flex gap-3">
         <Avatar person={me} size={40} />
         <div className="flex-1 min-w-0">
-          <textarea
+          <TextareaAutosize
             value={text}
-            onChange={(e) => setText(e.target.value.slice(0, MAX))}
+            onChange={(e) => setText(e.target.value)}
             onFocus={() => setFocused(true)}
             placeholder="What's happening?"
-            className="w-full bg-transparent text-xl outline-none resize-none placeholder-[#71767b]"
-            style={{ color: '#e7e9ea', minHeight: focused || text ? 60 : 28, transition: 'min-height 0.2s' }}
-            rows={1}
+            minRows={focused || text ? 2 : 1}
+            maxRows={16}
+            className="w-full bg-transparent text-xl outline-none resize-none placeholder-[#71767b] block"
+            style={{ color: '#e7e9ea' }}
           />
 
           {media.length > 0 && (
@@ -525,13 +712,9 @@ function InlineComposer({ me, onSubmit }) {
                             onClick={() => setUrgent(!urgent)} active={urgent} title="Mark urgent" />
             </div>
             <div className="flex items-center gap-3">
-              {(focused || text) && (
-                <>
-                  <div className="text-sm" style={{ color: remaining < 20 ? '#f4212e' : '#71767b' }}>
-                    {remaining < 20 ? remaining : ''}
-                  </div>
-                  {text && <div className="h-6 w-px" style={{ background: '#2f3336' }} />}
-                </>
+              <CharCounter length={text.length} />
+              {text.length >= RING_VISIBLE_AT && (
+                <div className="h-6 w-px" style={{ background: '#2f3336' }} />
               )}
               <button onClick={submit} disabled={!canPost}
                       className="px-4 py-1.5 rounded-full font-bold text-[15px] transition flex items-center gap-2"
@@ -561,9 +744,8 @@ function ComposerModal({ open, onClose, onSubmit, me }) {
   const [posting, setPosting] = useState(false);
   const [cropping, setCropping] = useState(null);
   const fileInputRef = useRef(null);
-  const MAX = 280;
-  const remaining = MAX - text.length;
-  const canPost = (text.trim().length > 0 || media.length > 0) && !posting;
+  const overLimit = text.length > TWEET_MAX;
+  const canPost = (text.trim().length > 0 || media.length > 0) && !posting && !overLimit;
 
   const handleFiles = (files) => {
     const incoming = Array.from(files).slice(0, 4 - media.length).filter(file => {
@@ -582,6 +764,13 @@ function ComposerModal({ open, onClose, onSubmit, me }) {
         aspectMode: null,
       })),
     ]);
+  };
+
+  const onPaste = (e) => {
+    const imgs = extractPastedImages(e);
+    if (imgs.length === 0) return;
+    e.preventDefault();
+    handleFiles(imgs);
   };
 
   const handleCropApply = ({ blob, aspectRatio, aspectMode, altText }) => {
@@ -662,7 +851,8 @@ function ComposerModal({ open, onClose, onSubmit, me }) {
     <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-0 sm:p-4"
          style={{ background: 'rgba(91,112,131,0.4)' }} onClick={safeClose}>
       <div className="w-full sm:max-w-xl sm:rounded-2xl sm:min-h-0 min-h-screen flex flex-col"
-           style={{ background: '#000', border: '1px solid #2f3336' }} onClick={(e) => e.stopPropagation()}>
+           style={{ background: '#000', border: '1px solid #2f3336' }}
+           onClick={(e) => e.stopPropagation()} onPaste={onPaste}>
         <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple style={{ display: 'none' }}
                onChange={(e) => { handleFiles(e.target.files); e.target.value = ''; }} />
         <div className="p-3 flex items-center justify-between" style={{ borderBottom: '1px solid #2f3336' }}>
@@ -674,12 +864,18 @@ function ComposerModal({ open, onClose, onSubmit, me }) {
             Post
           </button>
         </div>
-        <div className="p-4 flex gap-3 flex-1">
+        <div className="p-4 flex gap-3 flex-1 overflow-y-auto">
           <Avatar person={me} />
-          <div className="flex-1">
-            <textarea value={text} onChange={(e) => setText(e.target.value.slice(0, MAX))} placeholder="What's happening?"
-                      className="w-full bg-transparent text-xl outline-none resize-none min-h-[120px] placeholder-[#71767b]"
-                      style={{ color: '#e7e9ea' }} autoFocus />
+          <div className="flex-1 min-w-0">
+            <TextareaAutosize
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="What's happening?"
+              minRows={5}
+              maxRows={16}
+              className="w-full bg-transparent text-xl outline-none resize-none placeholder-[#71767b] block"
+              style={{ color: '#e7e9ea' }}
+              autoFocus />
             {media.length > 0 && (
               <MediaGrid items={media} context="composer" renderOverlay={composerMediaOverlay} />
             )}
@@ -699,7 +895,7 @@ function ComposerModal({ open, onClose, onSubmit, me }) {
             <ComposerPill icon={Zap} label="Urgent"
                           onClick={() => setUrgent(!urgent)} active={urgent} title="Mark urgent" />
           </div>
-          <div className="text-sm" style={{ color: remaining < 20 ? '#f4212e' : '#71767b' }}>{remaining}</div>
+          <CharCounter length={text.length} />
         </div>
       </div>
       {cropping && (
@@ -1022,7 +1218,6 @@ export default function App() {
   const [profiles, setProfiles] = useState([]);
   const [tweets, setTweets] = useState([]);
   const [articles, setArticles] = useState([]);
-  const [articleTab, setArticleTab] = useState('all');
   const [articleComposerOpen, setArticleComposerOpen] = useState(false);
   const [articleReaderId, setArticleReaderId] = useState(null);
   const [bookmarks, setBookmarks] = useState(new Set());
@@ -1273,6 +1468,26 @@ export default function App() {
   const rejectedTweets = tweets.filter(t => t.status === 'rejected');
   const commentedPending = inFeed.filter(t => t.comments?.length > 0);
 
+  // Merged chronological list of tweets + articles for the main feed views.
+  // Drafts authored by someone else are hidden so reviewers don't see them.
+  const feedItems = useMemo(() => {
+    const tagged = [
+      ...tweets.map(t => ({ ...t, type: 'tweet' })),
+      ...articles
+        .filter(a => a.status !== 'draft' || a.author_id === me?.id)
+        .map(a => ({ ...a, type: 'article' })),
+    ];
+    tagged.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    return tagged;
+  }, [tweets, articles, me?.id]);
+
+  const pendingArticles  = articles.filter(a => a.status === 'pending');
+  const urgentArticles   = pendingArticles.filter(a => a.urgent);
+  const approvedArticles = articles.filter(a => a.status === 'approved');
+  const rejectedArticles = articles.filter(a => a.status === 'rejected');
+
+  const urgentCount = urgentTweets.length + urgentArticles.length;
+
   // ── Early states
   if (bootLoading) {
     return (
@@ -1328,8 +1543,8 @@ export default function App() {
 
   // ── Sidebar nav
   const nav = [
-    { key: 'home',      icon: Home,         label: 'Home',      badge: 0,                       filled: true, indicator: inFeed.length > 0 },
-    { key: 'urgent',    icon: Zap,          label: 'Urgent',    badge: urgentTweets.length,     filled: true, badgeColor: '#ef4444', activeColor: '#ef4444' },
+    { key: 'home',      icon: Home,         label: 'Home',      badge: 0,                       filled: true, indicator: inFeed.length > 0 || pendingArticles.length > 0 },
+    { key: 'urgent',    icon: Zap,          label: 'Urgent',    badge: urgentCount,             filled: true, badgeColor: '#ef4444', activeColor: '#ef4444' },
     { key: 'approved',  icon: CheckCircle2, label: 'Approved',  badge: 0,                       filled: true },
     { key: 'rejected',  icon: XCircle,      label: 'Rejected',  badge: 0,                       filled: true },
     { key: 'saved',     icon: Bookmark,     label: 'Bookmarks', badge: bookmarks.size,          filled: true },
@@ -1338,13 +1553,17 @@ export default function App() {
     { key: 'profile',   icon: UserIcon,     label: 'Profile',   badge: 0 },
   ];
 
-  // ── Feed filtering
+  // ── Feed filtering. Returns mixed tweet+article items for the feed views.
   const filteredFeed = (() => {
-    if (view === 'home')     return feedTab === 'urgent' ? urgentTweets : inFeed;
-    if (view === 'urgent')   return urgentTweets;
-    if (view === 'approved') return approvedTweets;
-    if (view === 'rejected') return rejectedTweets;
-    if (view === 'saved')    return tweets.filter(t => bookmarks.has(t.id));
+    const isPending = (i) => i.status === 'pending';
+    if (view === 'home') {
+      const pend = feedItems.filter(isPending);
+      return feedTab === 'urgent' ? pend.filter(i => i.urgent) : pend;
+    }
+    if (view === 'urgent')   return feedItems.filter(i => isPending(i) && i.urgent);
+    if (view === 'approved') return feedItems.filter(i => i.status === 'approved');
+    if (view === 'rejected') return feedItems.filter(i => i.status === 'rejected');
+    if (view === 'saved')    return feedItems.filter(i => i.type === 'tweet' && bookmarks.has(i.id));
     return [];
   })();
 
@@ -1367,7 +1586,10 @@ export default function App() {
           </div>
           <nav className="flex flex-col gap-0.5 items-start">
             {nav.map(item => (
-              <button key={item.key} onClick={() => setView(item.key)}
+              <button key={item.key} onClick={() => {
+                        if (item.key === 'articles') { setArticleComposerOpen(true); return; }
+                        setView(item.key);
+                      }}
                       className="nav-pill flex items-center gap-5 py-3 px-3 rounded-full transition-colors text-xl"
                       style={{ color: view === item.key && item.activeColor ? item.activeColor : '#e7e9ea', background: view === item.key ? 'rgba(231,233,234,0.1)' : 'transparent' }}>
                 <div className="relative shrink-0">
@@ -1429,9 +1651,9 @@ export default function App() {
                 </div>
                 <div className="flex items-center gap-1.5 text-[13px] truncate" style={{ color: '#71767b' }}>
                   <span className="truncate">@{me.handle}</span>
-                  {urgentTweets.length > 0 && (
+                  {urgentCount > 0 && (
                     <span className="shrink-0 px-1.5 rounded text-[11px] font-bold leading-tight py-0.5" style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444' }}>
-                      {urgentTweets.length}
+                      {urgentCount}
                     </span>
                   )}
                 </div>
@@ -1462,9 +1684,9 @@ export default function App() {
                           onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(231,233,234,0.03)'}
                           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
                     {label}
-                    {k === 'urgent' && urgentTweets.length > 0 && (
+                    {k === 'urgent' && urgentCount > 0 && (
                       <span className="px-1.5 rounded-full text-[11px] font-bold leading-tight py-0.5" style={{ background: '#ef4444', color: 'white' }}>
-                        {urgentTweets.length}
+                        {urgentCount}
                       </span>
                     )}
                     {feedTab === k && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-1 rounded-full" style={{ width: 56, background: '#1d9bf0' }} />}
@@ -1498,24 +1720,23 @@ export default function App() {
 
           <div>
             {view === 'analytics' ? <AnalyticsView tweets={tweets} /> :
-             view === 'articles'  ? <ArticlesView
-                                       articles={articles}
-                                       me={me}
-                                       tab={articleTab}
-                                       setTab={setArticleTab}
-                                       onWrite={() => setArticleComposerOpen(true)}
-                                       onOpen={(id) => setArticleReaderId(id)}
-                                       onApprove={handleApproveArticle}
-                                       onReject={handleRejectArticle} /> :
              view === 'profile'   ? <ProfileView me={me} onLogout={handleLogout} onEdit={() => setEditProfileOpen(true)} tweets={tweets.filter(t => t.author_id === me.id)} /> :
              filteredFeed.length > 0 ? (
-               filteredFeed.map(t => (
-                 <TweetCard key={t.id} tweet={t} me={me}
-                            isDecided={t.status === 'approved' || t.status === 'rejected'}
-                            onApprove={handleApprove} onReject={handleReject}
-                            onSave={handleSave} onUndo={handleUndo}
-                            savedIds={bookmarks} onOpenComments={setCommentTarget}
-                            onOpenLightbox={(items, index) => setLightbox({ items, index })} />
+               filteredFeed.map(item => (
+                 item.type === 'article' ? (
+                   <ArticleFeedCard key={`a-${item.id}`} article={item} me={me}
+                                    onOpen={() => setArticleReaderId(item.id)}
+                                    onApprove={handleApproveArticle}
+                                    onReject={handleRejectArticle}
+                                    onUndo={handleUndoArticle} />
+                 ) : (
+                   <TweetCard key={`t-${item.id}`} tweet={item} me={me}
+                              isDecided={item.status === 'approved' || item.status === 'rejected'}
+                              onApprove={handleApprove} onReject={handleReject}
+                              onSave={handleSave} onUndo={handleUndo}
+                              savedIds={bookmarks} onOpenComments={setCommentTarget}
+                              onOpenLightbox={(items, index) => setLightbox({ items, index })} />
+                 )
                ))
              ) : (
                <EmptyState
@@ -1545,11 +1766,11 @@ export default function App() {
           <div className="rounded-2xl p-4 mb-4" style={{ background: '#16181c' }}>
             <h3 className="font-black text-xl mb-3" style={{ color: '#e7e9ea' }}>Queue overview</h3>
             <div className="space-y-3">
-              <SnapshotRow label="In the feed" value={inFeed.length} dot="#71767b" onClick={() => setView('home')} />
-              <SnapshotRow label="Urgent waiting" value={urgentTweets.length} dot="#ef4444" onClick={() => setView('urgent')} />
+              <SnapshotRow label="In the feed" value={inFeed.length + pendingArticles.length} dot="#71767b" onClick={() => setView('home')} />
+              <SnapshotRow label="Urgent waiting" value={urgentCount} dot="#ef4444" onClick={() => setView('urgent')} />
               <SnapshotRow label="With notes" value={commentedPending.length} dot="#ffd400" onClick={() => setView('home')} />
-              <SnapshotRow label="Approved" value={approvedTweets.length} dot="#00ba7c" onClick={() => setView('approved')} />
-              <SnapshotRow label="Rejected" value={rejectedTweets.length} dot="#f4212e" onClick={() => setView('rejected')} />
+              <SnapshotRow label="Approved" value={approvedTweets.length + approvedArticles.length} dot="#00ba7c" onClick={() => setView('approved')} />
+              <SnapshotRow label="Rejected" value={rejectedTweets.length + rejectedArticles.length} dot="#f4212e" onClick={() => setView('rejected')} />
             </div>
             <button onClick={() => setView('analytics')} className="mt-3 text-[15px] font-medium hover:underline" style={{ color: '#1d9bf0' }}>
               Show full analytics
@@ -1582,7 +1803,7 @@ export default function App() {
            style={{ background: 'rgba(0,0,0,0.95)', borderTop: '1px solid #2f3336', backdropFilter: 'blur(12px)' }}>
         {[
           { key: 'home', icon: Home, filled: true, badge: 0 },
-          { key: 'urgent', icon: Zap, filled: true, badge: urgentTweets.length, color: '#ef4444', activeColor: '#ef4444' },
+          { key: 'urgent', icon: Zap, filled: true, badge: urgentCount, color: '#ef4444', activeColor: '#ef4444' },
           { key: 'approved', icon: CheckCircle2, filled: true, badge: 0 },
           { key: 'rejected', icon: XCircle, filled: true, badge: 0 },
         ].map(item => (
@@ -2021,124 +2242,6 @@ function ArticleStatusPill({ status }) {
   );
 }
 
-function ArticlesView({ articles, me, tab, setTab, onWrite, onOpen, onApprove, onReject }) {
-  const filtered = articles.filter(a => {
-    if (a.status === 'draft' && a.author_id !== me.id) return false;
-    if (tab === 'all') return true;
-    if (tab === 'pending')  return a.status === 'pending';
-    if (tab === 'approved') return a.status === 'approved';
-    if (tab === 'rejected') return a.status === 'rejected';
-    return true;
-  });
-
-  return (
-    <div>
-      <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid #2f3336' }}>
-        <div className="text-sm" style={{ color: '#71767b' }}>{filtered.length} {filtered.length === 1 ? 'article' : 'articles'}</div>
-        <button onClick={onWrite}
-                className="px-4 py-1.5 rounded-full font-bold text-sm flex items-center gap-2"
-                style={{ background: '#1d9bf0', color: 'white' }}>
-          <PenSquare size={14} /> Write
-        </button>
-      </div>
-      <div className="flex" style={{ borderBottom: '1px solid #2f3336' }}>
-        {[['all','All'],['pending','Pending'],['approved','Approved'],['rejected','Rejected']].map(([k, label]) => (
-          <button key={k} onClick={() => setTab(k)}
-                  className="flex-1 px-4 py-4 text-[15px] font-bold whitespace-nowrap transition-colors relative"
-                  style={{ color: tab === k ? '#e7e9ea' : '#71767b' }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(231,233,234,0.03)'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-            {label}
-            {tab === k && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-1 rounded-full" style={{ width: 56, background: '#1d9bf0' }} />}
-          </button>
-        ))}
-      </div>
-      {filtered.length === 0 ? (
-        <EmptyState icon={Newspaper} title="No articles here yet"
-                    sub={tab === 'all' ? "Tap Write to start one" : `No ${tab} articles`} />
-      ) : (
-        filtered.map(a => (
-          <ArticleCard key={a.id} article={a} me={me}
-                       onOpen={() => onOpen(a.id)}
-                       onApprove={() => onApprove(a.id)}
-                       onReject={() => onReject(a.id)} />
-        ))
-      )}
-    </div>
-  );
-}
-
-function ArticleCard({ article, me, onOpen, onApprove, onReject }) {
-  const author = article.author || { name: 'Unknown', handle: 'unknown', color: '#71767b' };
-  const rt = readingTime(article.content);
-  const isPending = article.status === 'pending';
-  const canAct = isPending && article.author_id !== me.id;
-
-  return (
-    <article onClick={onOpen}
-             className="px-4 py-4 cursor-pointer transition-colors flex gap-4"
-             style={{ borderBottom: '1px solid #2f3336' }}
-             onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(231,233,234,0.03)'}
-             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-      <div className="w-24 h-24 rounded-xl overflow-hidden shrink-0"
-           style={{
-             background: article.cover_image_url
-               ? `url(${article.cover_image_url}) center/cover`
-               : `linear-gradient(135deg, ${author.color || '#1d9bf0'}, ${author.color || '#1d9bf0'}66)`,
-           }} />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 text-[13px] mb-1" style={{ color: '#71767b' }}>
-          <Avatar person={author} size={20} />
-          <span className="truncate font-semibold" style={{ color: '#e7e9ea' }}>{author.name}</span>
-          {author.verified && <VerifiedBadge size={12} />}
-          <span className="truncate">@{author.handle}</span>
-          <span>·</span>
-          <span>{timeAgo(article.created_at)}</span>
-          <span>·</span>
-          <span>{rt.minutes} min read</span>
-        </div>
-        <div className="font-bold text-[17px] leading-tight line-clamp-2 mb-1" style={{ color: '#e7e9ea' }}>
-          {article.title || 'Untitled'}
-        </div>
-        {article.subtitle && (
-          <div className="text-sm leading-snug line-clamp-2" style={{ color: '#71767b' }}>{article.subtitle}</div>
-        )}
-        <div className="mt-2 flex items-center gap-2 justify-between">
-          <div className="flex items-center gap-2">
-            <ArticleStatusPill status={article.status} />
-            {article.urgent && (
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1"
-                    style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171' }}>
-                <Zap size={10} fill="currentColor" /> Urgent
-              </span>
-            )}
-          </div>
-          {canAct && (
-            <div className="flex items-center gap-1">
-              <button onClick={(e) => { e.stopPropagation(); onApprove(); }}
-                      className="p-1.5 rounded-full transition"
-                      style={{ color: '#00ba7c' }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,186,124,0.15)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                      title="Approve">
-                <Check size={16} />
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); onReject(); }}
-                      className="p-1.5 rounded-full transition"
-                      style={{ color: '#f4212e' }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(244,33,46,0.15)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                      title="Reject">
-                <X size={16} />
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    </article>
-  );
-}
-
 function TipTapToolbarButton({ icon: Icon, active, onClick, title }) {
   return (
     <button type="button" onClick={onClick} title={title}
@@ -2294,19 +2397,21 @@ function ArticleComposer({ open, me, onClose, onSubmit }) {
             </button>
           )}
 
-          <textarea
+          <TextareaAutosize
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Title"
-            rows={1}
-            className="w-full bg-transparent outline-none resize-none mb-3 article-title-input"
+            minRows={1}
+            maxRows={6}
+            className="w-full bg-transparent outline-none resize-none mb-3 article-title-input block"
             style={{ color: '#e7e9ea', fontSize: 36, fontWeight: 800, lineHeight: 1.15, fontFamily: 'Georgia, serif' }} />
-          <textarea
+          <TextareaAutosize
             value={subtitle}
             onChange={(e) => setSubtitle(e.target.value)}
             placeholder="Add a subtitle..."
-            rows={1}
-            className="w-full bg-transparent outline-none resize-none mb-6 article-subtitle-input"
+            minRows={1}
+            maxRows={4}
+            className="w-full bg-transparent outline-none resize-none mb-6 article-subtitle-input block"
             style={{ color: '#71767b', fontSize: 20, fontFamily: 'Georgia, serif' }} />
 
           <div className="sticky top-0 z-10 -mx-2 px-2 py-2 mb-3 flex items-center gap-1 flex-wrap"

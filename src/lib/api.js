@@ -304,11 +304,18 @@ export async function getArticles() {
     .from('articles')
     .select(`
       *,
-      author:profiles!articles_author_id_fkey (id, name, handle, color, verified, avatar_url)
+      author:profiles!articles_author_id_fkey (id, name, handle, color, verified, avatar_url),
+      comments:article_comments (
+        id, text, created_at,
+        author:profiles!article_comments_author_id_fkey (id, name, handle, avatar_url)
+      )
     `)
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return data || [];
+  return (data || []).map(a => ({
+    ...a,
+    comments: (a.comments || []).sort((x, y) => new Date(x.created_at) - new Date(y.created_at)),
+  }));
 }
 
 export async function getArticle(id) {
@@ -316,7 +323,11 @@ export async function getArticle(id) {
     .from('articles')
     .select(`
       *,
-      author:profiles!articles_author_id_fkey (id, name, handle, color, verified, avatar_url)
+      author:profiles!articles_author_id_fkey (id, name, handle, color, verified, avatar_url),
+      comments:article_comments (
+        id, text, created_at,
+        author:profiles!article_comments_author_id_fkey (id, name, handle, avatar_url)
+      )
     `)
     .eq('id', id)
     .single();
@@ -406,6 +417,19 @@ export async function addComment({ tweetId, text }) {
   return data;
 }
 
+export async function addArticleComment({ articleId, text }) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not signed in.');
+
+  const { data, error } = await supabase
+    .from('article_comments')
+    .insert({ article_id: articleId, author_id: user.id, text: text.trim() })
+    .select(`*, author:profiles!article_comments_author_id_fkey (id, name, handle, avatar_url)`)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 // ── Bookmarks ────────────────────────────────────────────────────
 
 export async function getBookmarks() {
@@ -453,6 +477,7 @@ export function subscribeToFeed(onChange) {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tweet_comments' }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tweet_media'    }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'articles'       }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'article_comments'}, onChange)
     .subscribe();
 
   return () => { supabase.removeChannel(channel); };

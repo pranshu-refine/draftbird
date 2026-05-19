@@ -346,34 +346,47 @@ function TweetCard({ tweet, me, isDecided, onApprove, onReject, onSave, onUndo, 
   );
 }
 
-// X-style article card inside the main feed. Shows author row, cover image,
-// title, subtitle, status pill, and (for pending items) approve/reject/comment
-// buttons mirroring TweetCard. Whole card opens the ArticleReader modal.
-function ArticleFeedCard({ article, me, onOpen, onApprove, onReject, onUndo }) {
+// X-style article card inside the main feed.
+//   - Author row at top (same as TweetCard).
+//   - Wrapped "card" body: cover image with "Article" overlay badge, then
+//     title + subtitle. Clicking anywhere on the card body opens the reader.
+//   - Action bar OUTSIDE the card (Approve / Reject / Comment when actionable,
+//     Status + Undo when decided), matching TweetCard's action layout.
+function ArticleFeedCard({ article, me, onOpen, onApprove, onReject, onUndo, onOpenComments }) {
   const author = article.author || { name: 'Unknown', handle: 'unknown', color: '#71767b' };
   const isPending = article.status === 'pending';
   const isDecided = article.status === 'approved' || article.status === 'rejected';
   const canAct = isPending && article.author_id !== me.id;
+  const commentCount = article.comments?.length || 0;
+
+  const coverStyle = article.cover_image_url
+    ? { backgroundImage: `url(${article.cover_image_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+    : { background: `linear-gradient(135deg, ${author.color || '#1d9bf0'}, #16181c)` };
 
   return (
     <article
-      onClick={onOpen}
-      className="px-4 py-3 cursor-pointer transition-colors"
+      className="px-4 py-3 transition-colors"
       style={{
         borderBottom: '1px solid #2f3336',
         background: article.urgent && !isDecided ? 'rgba(239,68,68,0.05)' : 'transparent',
-      }}
-      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(231,233,234,0.03)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = article.urgent && !isDecided ? 'rgba(239,68,68,0.05)' : 'transparent'; }}>
+      }}>
       <div className="flex gap-3">
         <Avatar person={author} />
         <div className="flex-1 min-w-0">
+          {/* Author row */}
           <div className="flex items-center gap-1 text-[15px]">
             <span className="font-bold truncate hover:underline" style={{ color: '#e7e9ea' }}>{author.name}</span>
             {author.verified && <VerifiedBadge />}
             <span className="truncate" style={{ color: '#71767b' }}>@{author.handle}</span>
             <span style={{ color: '#71767b' }}>·</span>
             <span className="hover:underline" style={{ color: '#71767b' }}>{timeAgo(article.created_at)}</span>
+            <button onClick={(e) => e.stopPropagation()}
+                    className="ml-auto p-1.5 rounded-full transition-colors"
+                    style={{ color: '#71767b' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(29,155,240,0.1)'; e.currentTarget.style.color = '#1d9bf0'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#71767b'; }}>
+              <MoreHorizontal size={16} />
+            </button>
           </div>
 
           {article.urgent && !isDecided && (
@@ -382,27 +395,29 @@ function ArticleFeedCard({ article, me, onOpen, onApprove, onReject, onUndo }) {
             </div>
           )}
 
-          {article.cover_image_url && (
-            <div className="mt-2 rounded-2xl overflow-hidden"
-                 style={{ border: '1px solid #2f3336', maxHeight: 280 }}>
-              <img src={article.cover_image_url} alt=""
-                   className="w-full object-cover"
-                   style={{ maxHeight: 280 }} />
+          {/* Editorial card */}
+          <div
+            onClick={onOpen}
+            className="mt-2 rounded-2xl overflow-hidden cursor-pointer transition-colors"
+            style={{ border: '1px solid #2f3336', background: '#000' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = '#1a1a1a'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = '#000'; }}>
+            <div className="relative w-full" style={{ height: 210, ...coverStyle }}>
+              <span className="absolute bottom-3 left-3 text-white text-xs font-semibold px-2 py-1 rounded backdrop-blur-sm flex items-center gap-1"
+                    style={{ background: 'rgba(0,0,0,0.7)' }}>
+                <Newspaper size={12} /> Article
+              </span>
             </div>
-          )}
-
-          <div className="mt-2 font-bold text-[17px] leading-tight" style={{ color: '#e7e9ea' }}>
-            {article.title || 'Untitled'}
-          </div>
-          {article.subtitle && (
-            <div className="mt-1 text-sm leading-snug line-clamp-2" style={{ color: '#71767b' }}>
-              {article.subtitle}
+            <div className="px-4 py-3">
+              <div className="font-bold text-[17px] leading-tight line-clamp-2" style={{ color: '#e7e9ea' }}>
+                {article.title || 'Untitled'}
+              </div>
+              {article.subtitle && (
+                <div className="mt-1 text-[15px] leading-snug line-clamp-3" style={{ color: '#9ca3af' }}>
+                  {article.subtitle}
+                </div>
+              )}
             </div>
-          )}
-
-          <div className="mt-2 flex items-center gap-2">
-            <ArticleStatusPill status={article.status} />
-            <span className="text-xs" style={{ color: '#71767b' }}>· Article</span>
           </div>
 
           {article.status === 'rejected' && article.rejection_note && (
@@ -412,19 +427,22 @@ function ArticleFeedCard({ article, me, onOpen, onApprove, onReject, onUndo }) {
             </div>
           )}
 
+          {/* Action bar (outside the card) */}
           <div className="mt-3 flex items-center justify-between max-w-md -ml-2">
             {canAct ? (
               <>
+                <ActionButton icon={MessageCircle} label={commentCount || ''} hex="#1d9bf0"
+                              onClick={() => onOpenComments(article)} />
                 <ActionButton icon={Check} label="Approve" hex="#00ba7c"
                               onClick={() => onApprove(article.id)} />
                 <ActionButton icon={X} label="Reject" hex="#f4212e"
                               onClick={() => onReject(article.id)} />
-                <ActionButton icon={MessageCircle} label="" hex="#1d9bf0"
-                              onClick={() => onOpen()} />
               </>
             ) : isDecided ? (
               <>
-                <div className="flex items-center gap-2 text-sm pl-2"
+                <ActionButton icon={MessageCircle} label={commentCount || ''} hex="#1d9bf0"
+                              onClick={() => onOpenComments(article)} />
+                <div className="flex items-center gap-2 text-sm"
                      style={{ color: article.status === 'approved' ? '#00ba7c' : '#f4212e' }}>
                   {article.status === 'approved' ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
                   <span className="font-semibold">{article.status === 'approved' ? 'Approved' : 'Rejected'}</span>
@@ -438,10 +456,13 @@ function ArticleFeedCard({ article, me, onOpen, onApprove, onReject, onUndo }) {
                 </button>
               </>
             ) : (
-              // Pending but authored by self — show status only, no action buttons
-              <div className="flex items-center gap-2 text-sm pl-2" style={{ color: '#71767b' }}>
-                <Clock size={16} /> <span className="font-semibold">Pending review</span>
-              </div>
+              <>
+                <ActionButton icon={MessageCircle} label={commentCount || ''} hex="#1d9bf0"
+                              onClick={() => onOpenComments(article)} />
+                <div className="flex items-center gap-2 text-sm" style={{ color: '#71767b' }}>
+                  <Clock size={16} /> <span className="font-semibold">Pending review</span>
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -913,21 +934,30 @@ function ComposerModal({ open, onClose, onSubmit, me }) {
 //  Comment Modal
 // ════════════════════════════════════════════════════════════════
 
-function CommentModal({ tweet, onClose, onAddComment }) {
+// `target` is either a tweet ({ type: 'tweet', ... }) or an article ({ type: 'article', ... }).
+// Falls back to type='tweet' for back-compat when callers pass a raw tweet.
+function CommentModal({ target, onClose, onAddComment }) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const quickNotes = ['change hook', 'too long', 'remove emoji', 'add chart', 'need stronger CTA', 'tighten the opening'];
 
   const hasUnsaved = text.trim().length > 0;
   const safeClose = () => { if (!hasUnsaved && !sending) onClose(); };
-  useEscapeKey(!!tweet, safeClose);
+  useEscapeKey(!!target, safeClose);
 
-  if (!tweet) return null;
+  if (!target) return null;
+
+  const targetType = target.type === 'article' ? 'article' : 'tweet';
+  // Snippet shown above the textarea. Tweets show their text; articles show
+  // their title since their .content is HTML.
+  const snippet = targetType === 'article'
+    ? (target.title || 'Untitled article')
+    : (target.content || '');
 
   const submit = async () => {
     if (!text.trim()) return;
     setSending(true);
-    try { await onAddComment(tweet.id, text.trim()); setText(''); onClose(); }
+    try { await onAddComment(target.id, text.trim(), targetType); setText(''); onClose(); }
     finally { setSending(false); }
   };
 
@@ -941,10 +971,10 @@ function CommentModal({ tweet, onClose, onAddComment }) {
           <button onClick={onClose} className="p-2 rounded-full" style={{ color: '#e7e9ea' }}><X size={20} /></button>
         </div>
         <div className="p-4 overflow-y-auto">
-          <div className="text-sm mb-3 line-clamp-3" style={{ color: '#71767b' }}>{tweet.content}</div>
-          {tweet.comments?.length > 0 && (
+          <div className="text-sm mb-3 line-clamp-3" style={{ color: '#71767b' }}>{snippet}</div>
+          {target.comments?.length > 0 && (
             <div className="space-y-2 mb-4">
-              {tweet.comments.map((c) => (
+              {target.comments.map((c) => (
                 <div key={c.id} className="px-3 py-2 rounded-lg" style={{ background: '#16181c', border: '1px solid #2f3336' }}>
                   <div className="text-xs mb-0.5" style={{ color: '#71767b' }}>
                     {c.author?.name || 'Unknown'} · {timeAgo(c.created_at)}
@@ -954,9 +984,10 @@ function CommentModal({ tweet, onClose, onAddComment }) {
               ))}
             </div>
           )}
-          <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="What needs to change?"
-                    className="w-full bg-transparent rounded-xl p-3 outline-none resize-none"
-                    style={{ border: '1px solid #2f3336', color: '#e7e9ea' }} rows={3} autoFocus />
+          <TextareaAutosize value={text} onChange={(e) => setText(e.target.value)} placeholder="What needs to change?"
+                    className="w-full bg-transparent rounded-xl p-3 outline-none resize-none block"
+                    style={{ border: '1px solid #2f3336', color: '#e7e9ea' }}
+                    minRows={3} maxRows={12} autoFocus />
           <div className="mt-3">
             <div className="text-xs mb-2 uppercase tracking-wide" style={{ color: '#71767b' }}>Quick notes</div>
             <div className="flex flex-wrap gap-2">
@@ -1405,11 +1436,17 @@ export default function App() {
       showToast(e.message, <AlertCircle size={16} />, true);
     }
   };
-  const handleAddComment = async (id, text) => {
+  const handleAddComment = async (id, text, targetType = 'tweet') => {
     try {
-      await api.addComment({ tweetId: id, text });
-      const fresh = await api.getTweets();
-      setTweets(fresh);
+      if (targetType === 'article') {
+        await api.addArticleComment({ articleId: id, text });
+        const fresh = await api.getArticles();
+        setArticles(fresh);
+      } else {
+        await api.addComment({ tweetId: id, text });
+        const fresh = await api.getTweets();
+        setTweets(fresh);
+      }
       showToast('Note sent', <MessageCircle size={16} />);
     } catch (e) { showToast(e.message, <AlertCircle size={16} />, true); }
   };
@@ -1535,7 +1572,7 @@ export default function App() {
             </div>
           )}
         </div>
-        <CommentModal tweet={commentTarget} onClose={() => setCommentTarget(null)} onAddComment={handleAddComment} />
+        <CommentModal target={commentTarget} onClose={() => setCommentTarget(null)} onAddComment={handleAddComment} />
         <Toast toast={toast} />
       </div>
     );
@@ -1728,7 +1765,8 @@ export default function App() {
                                     onOpen={() => setArticleReaderId(item.id)}
                                     onApprove={handleApproveArticle}
                                     onReject={handleRejectArticle}
-                                    onUndo={handleUndoArticle} />
+                                    onUndo={handleUndoArticle}
+                                    onOpenComments={(a) => setCommentTarget({ ...a, type: 'article' })} />
                  ) : (
                    <TweetCard key={`t-${item.id}`} tweet={item} me={me}
                               isDecided={item.status === 'approved' || item.status === 'rejected'}
@@ -1824,7 +1862,7 @@ export default function App() {
       </button>
 
       <ComposerModal open={composerOpen} onClose={() => setComposerOpen(false)} onSubmit={handleSubmit} me={me} />
-      <CommentModal tweet={commentTarget} onClose={() => setCommentTarget(null)} onAddComment={handleAddComment} />
+      <CommentModal target={commentTarget} onClose={() => setCommentTarget(null)} onAddComment={handleAddComment} />
       <EditProfileModal
         open={editProfileOpen}
         me={me}
@@ -1855,6 +1893,7 @@ export default function App() {
         onApprove={handleApproveArticle}
         onReject={handleRejectArticle}
         onUndo={handleUndoArticle}
+        onOpenComments={(article) => setCommentTarget({ ...article, type: 'article' })}
       />
       <Lightbox lightbox={lightbox}
                 setIndex={(i) => setLightbox(lb => lb ? { ...lb, index: i } : lb)}
@@ -2466,7 +2505,7 @@ function ArticleComposer({ open, me, onClose, onSubmit }) {
   );
 }
 
-function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, onUndo }) {
+function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, onUndo, onOpenComments }) {
   const article = articleId ? articles.find(a => a.id === articleId) : null;
   useEscapeKey(!!article, onClose);
   if (!article) return null;
@@ -2475,6 +2514,14 @@ function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, 
   const rt = readingTime(article.content);
   const isDecided = article.status === 'approved' || article.status === 'rejected';
   const canAct = article.status === 'pending' && article.author_id !== me.id;
+  const commentCount = article.comments?.length || 0;
+
+  const handleCopyLink = async () => {
+    try {
+      const url = `${window.location.origin}/?article=${article.id}`;
+      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(url);
+    } catch { /* clipboard blocked */ }
+  };
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto" style={{ background: '#000' }}>
@@ -2483,15 +2530,45 @@ function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, 
         <button onClick={onClose} className="p-2 -ml-2 rounded-full" style={{ color: '#e7e9ea' }}>
           <ArrowLeft size={20} />
         </button>
-        <div className="font-bold text-[17px] truncate" style={{ color: '#e7e9ea' }}>{article.title}</div>
-        <div className="ml-auto"><ArticleStatusPill status={article.status} /></div>
+        <div className="font-bold text-[17px]" style={{ color: '#e7e9ea' }}>Article</div>
       </header>
 
-      {article.cover_image_url && (
-        <div className="w-full" style={{ height: 400, background: `url(${article.cover_image_url}) center/cover` }} />
-      )}
+      <article className="max-w-3xl mx-auto px-6 py-6">
+        {/* Author row — before cover image */}
+        <div className="flex items-center gap-3 mb-4">
+          <Avatar person={author} size={40} />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1 font-bold text-[15px]" style={{ color: '#e7e9ea' }}>
+              <span className="truncate">{author.name}</span>
+              {author.verified && <VerifiedBadge size={14} />}
+            </div>
+            <div className="text-[13px] truncate" style={{ color: '#71767b' }}>
+              @{author.handle} · {new Date(article.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} · {rt.minutes} min read
+            </div>
+          </div>
+        </div>
 
-      <article className="max-w-3xl mx-auto px-6 py-8">
+        {/* Inline status pill + urgent badge */}
+        <div className="flex items-center gap-2 mb-5">
+          <ArticleStatusPill status={article.status} />
+          {article.urgent && (
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1"
+                  style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171' }}>
+              <Zap size={10} fill="currentColor" /> Urgent
+            </span>
+          )}
+        </div>
+
+        {/* Cover image */}
+        {article.cover_image_url && (
+          <div className="w-full mb-6 rounded-2xl overflow-hidden"
+               style={{ border: '1px solid #2f3336' }}>
+            <img src={article.cover_image_url} alt=""
+                 className="w-full object-cover"
+                 style={{ maxHeight: 400 }} />
+          </div>
+        )}
+
         <h1 className="font-extrabold mb-3"
             style={{ color: '#e7e9ea', fontSize: 40, lineHeight: 1.15, fontFamily: 'Georgia, serif' }}>
           {article.title}
@@ -2501,23 +2578,6 @@ function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, 
             {article.subtitle}
           </p>
         )}
-        <div className="flex items-center gap-3 mb-8 pb-6" style={{ borderBottom: '1px solid #2f3336' }}>
-          <Avatar person={author} size={44} />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1 font-bold text-[15px]" style={{ color: '#e7e9ea' }}>
-              {author.name} {author.verified && <VerifiedBadge size={14} />}
-            </div>
-            <div className="text-[13px]" style={{ color: '#71767b' }}>
-              @{author.handle} · {new Date(article.created_at).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })} · {rt.minutes} min read
-            </div>
-          </div>
-          {article.urgent && (
-            <span className="px-2 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1"
-                  style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171' }}>
-              <Zap size={10} fill="currentColor" /> Urgent
-            </span>
-          )}
-        </div>
 
         {article.status === 'rejected' && article.rejection_note && (
           <div className="mb-6 px-4 py-3 rounded-lg text-sm"
@@ -2528,30 +2588,46 @@ function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, 
 
         <div className="article-body" dangerouslySetInnerHTML={{ __html: article.content || '<p><em>Empty article.</em></p>' }} />
 
-        {(canAct || isDecided) && (
-          <div className="mt-10 pt-6 flex items-center gap-2" style={{ borderTop: '1px solid #2f3336' }}>
+        {/* Action bar — comment + approve/reject (or status) + views + share */}
+        <div className="mt-10 pt-3 flex items-center justify-between"
+             style={{ borderTop: '1px solid #2f3336' }}>
+          <div className="flex items-center gap-1 sm:gap-3">
+            <ActionButton icon={MessageCircle} label={commentCount || ''} hex="#1d9bf0"
+                          onClick={() => onOpenComments(article)} />
+
             {canAct ? (
               <>
-                <button onClick={() => { onApprove(article.id); onClose(); }}
-                        className="px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2"
-                        style={{ background: '#00ba7c', color: 'white' }}>
-                  <Check size={16} /> Approve
-                </button>
-                <button onClick={() => { onReject(article.id); onClose(); }}
-                        className="px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2"
-                        style={{ background: 'transparent', border: '1px solid #f4212e', color: '#f4212e' }}>
-                  <X size={16} /> Reject
-                </button>
+                <ActionButton icon={Check} label="Approve" hex="#00ba7c"
+                              onClick={() => onApprove(article.id)} />
+                <ActionButton icon={X} label="Reject" hex="#f4212e"
+                              onClick={() => onReject(article.id)} />
               </>
             ) : isDecided ? (
-              <button onClick={() => { onUndo(article.id); }}
-                      className="px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2"
-                      style={{ background: 'transparent', border: '1px solid #536471', color: '#1d9bf0' }}>
-                <Undo2 size={14} /> Undo decision
-              </button>
-            ) : null}
+              <div className="flex items-center gap-2 px-2 text-sm"
+                   style={{ color: article.status === 'approved' ? '#00ba7c' : '#f4212e' }}>
+                {article.status === 'approved' ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+                <span className="font-semibold">{article.status === 'approved' ? 'Approved' : 'Rejected'}</span>
+                <button onClick={() => onUndo(article.id)}
+                        className="ml-2 text-sm font-semibold px-2 py-1 rounded-full"
+                        style={{ color: '#1d9bf0' }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(29,155,240,0.1)'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                  Undo
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 px-2 text-sm" style={{ color: '#71767b' }}>
+                <Clock size={16} /> <span className="font-semibold">Pending review</span>
+              </div>
+            )}
           </div>
-        )}
+
+          <div className="flex items-center gap-1 sm:gap-3">
+            <ActionButton icon={BarChart3} label={rt.words.toLocaleString()} hex="#1d9bf0"
+                          onClick={() => {}} />
+            <ActionButton icon={Send} hex="#1d9bf0" onClick={handleCopyLink} />
+          </div>
+        </div>
       </article>
     </div>
   );

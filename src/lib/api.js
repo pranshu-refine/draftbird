@@ -299,8 +299,17 @@ export async function getFeedItems() {
 
 // ── Articles ─────────────────────────────────────────────────────
 
+// If the article_comments table is missing (migration 003 not applied yet),
+// PostgREST throws a "relationship not found" / 42P01 error. Detect that and
+// fall back to the no-comments query so the app still boots.
+function _missingArticleCommentsTable(err) {
+  if (!err) return false;
+  const msg = (err.message || '') + ' ' + (err.details || '') + ' ' + (err.hint || '');
+  return /article_comments/i.test(msg);
+}
+
 export async function getArticles() {
-  const { data, error } = await supabase
+  const withComments = await supabase
     .from('articles')
     .select(`
       *,
@@ -311,15 +320,25 @@ export async function getArticles() {
       )
     `)
     .order('created_at', { ascending: false });
-  if (error) throw error;
-  return (data || []).map(a => ({
+
+  if (withComments.error && _missingArticleCommentsTable(withComments.error)) {
+    const { data, error } = await supabase
+      .from('articles')
+      .select(`*, author:profiles!articles_author_id_fkey (id, name, handle, color, verified, avatar_url)`)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data || []).map(a => ({ ...a, comments: [] }));
+  }
+  if (withComments.error) throw withComments.error;
+
+  return (withComments.data || []).map(a => ({
     ...a,
     comments: (a.comments || []).sort((x, y) => new Date(x.created_at) - new Date(y.created_at)),
   }));
 }
 
 export async function getArticle(id) {
-  const { data, error } = await supabase
+  const withComments = await supabase
     .from('articles')
     .select(`
       *,
@@ -331,8 +350,18 @@ export async function getArticle(id) {
     `)
     .eq('id', id)
     .single();
-  if (error) throw error;
-  return data;
+
+  if (withComments.error && _missingArticleCommentsTable(withComments.error)) {
+    const { data, error } = await supabase
+      .from('articles')
+      .select(`*, author:profiles!articles_author_id_fkey (id, name, handle, color, verified, avatar_url)`)
+      .eq('id', id)
+      .single();
+    if (error) throw error;
+    return { ...data, comments: [] };
+  }
+  if (withComments.error) throw withComments.error;
+  return withComments.data;
 }
 
 export async function postArticle({ title, subtitle, coverImageFile, content, urgent, status = 'pending' }) {

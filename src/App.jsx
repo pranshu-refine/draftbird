@@ -13,7 +13,7 @@ import {
   User as UserIcon, Eye, EyeOff, Undo2, AlertCircle, Lock, Camera,
   TrendingUp, Users, ChevronRight, MoreHorizontal as More,
   Newspaper, Bold, Italic, Heading1, Heading2, Quote, List, ListOrdered, Code, ImagePlus,
-  Pencil, ChevronLeft, Share2
+  Pencil, ChevronLeft, Share2, Trash2
 } from 'lucide-react';
 
 import * as api from './lib/api';
@@ -209,7 +209,7 @@ function timeAgo(iso) {
 //  Tweet Card
 // ════════════════════════════════════════════════════════════════
 
-function TweetCard({ tweet, me, isDecided, onApprove, onReject, onUndo, onMarkPosted, onUndoPosted, onOpenComments, onOpenLightbox }) {
+function TweetCard({ tweet, me, isDecided, onApprove, onReject, onUndo, onMarkPosted, onUndoPosted, onOpenComments, onOpenLightbox, onRequestDelete }) {
   const [swipeX, setSwipeX] = useState(0);
   const [exiting, setExiting] = useState(null);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -267,6 +267,9 @@ function TweetCard({ tweet, me, isDecided, onApprove, onReject, onUndo, onMarkPo
               <span className="truncate" style={{ color: '#71767b' }}>@{author.handle}</span>
               <span style={{ color: '#71767b' }}>·</span>
               <span className="hover:underline" style={{ color: '#71767b' }}>{timeAgo(tweet.created_at)}</span>
+              <div className="ml-auto">
+                <PostMenu deleteLabel="Delete" onDelete={onRequestDelete} />
+              </div>
             </div>
 
             {tweet.urgent && !isDecided && (
@@ -373,7 +376,7 @@ function TweetCard({ tweet, me, isDecided, onApprove, onReject, onUndo, onMarkPo
 //     title + subtitle. Clicking anywhere on the card body opens the reader.
 //   - Action bar OUTSIDE the card (Approve / Reject / Comment when actionable,
 //     Status + Undo when decided), matching TweetCard's action layout.
-function ArticleFeedCard({ article, me, onOpen, onApprove, onReject, onUndo, onMarkPosted, onUndoPosted, onOpenComments }) {
+function ArticleFeedCard({ article, me, onOpen, onApprove, onReject, onUndo, onMarkPosted, onUndoPosted, onOpenComments, onRequestDelete }) {
   const author = article.author || { name: 'Unknown', handle: 'unknown', color: '#71767b' };
   const isPending = article.status === 'pending';
   const isDecided = article.status === 'approved' || article.status === 'rejected';
@@ -402,13 +405,9 @@ function ArticleFeedCard({ article, me, onOpen, onApprove, onReject, onUndo, onM
             <span className="truncate" style={{ color: '#71767b' }}>@{author.handle}</span>
             <span style={{ color: '#71767b' }}>·</span>
             <span className="hover:underline" style={{ color: '#71767b' }}>{timeAgo(article.created_at)}</span>
-            <button onClick={(e) => e.stopPropagation()}
-                    className="ml-auto p-1.5 rounded-full transition-colors"
-                    style={{ color: '#71767b' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(29,155,240,0.1)'; e.currentTarget.style.color = '#1d9bf0'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#71767b'; }}>
-              <MoreHorizontal size={16} />
-            </button>
+            <div className="ml-auto">
+              <PostMenu deleteLabel="Delete article" onDelete={onRequestDelete} />
+            </div>
           </div>
 
           {article.urgent && !isDecided && (
@@ -530,6 +529,86 @@ function ActionButton({ icon: Icon, label, hex, onClick, active }) {
       </span>
       {label !== undefined && label !== '' && <span className="px-1">{label}</span>}
     </button>
+  );
+}
+
+// Three-dot menu found on every tweet/article card + the article reader.
+// Currently exposes a single destructive "Delete" action. Closes on
+// outside-click or Escape.
+function PostMenu({ deleteLabel = 'Delete', onDelete }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button onClick={(e) => { e.stopPropagation(); setOpen(v => !v); }}
+              className="p-1.5 rounded-full transition-colors"
+              style={{ color: open ? '#1d9bf0' : '#71767b' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(29,155,240,0.1)'; e.currentTarget.style.color = '#1d9bf0'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = open ? '#1d9bf0' : '#71767b'; }}
+              title="More">
+        <MoreHorizontal size={16} />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 z-40 rounded-xl py-1 min-w-[180px]"
+             style={{ background: '#000', border: '1px solid #2f3336', boxShadow: '0 0 15px rgba(255,255,255,0.12)' }}>
+          <button onClick={(e) => { e.stopPropagation(); setOpen(false); onDelete(); }}
+                  className="w-full text-left px-4 py-2.5 text-sm font-bold flex items-center gap-3 transition-colors"
+                  style={{ color: '#ef4444' }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+            <Trash2 size={16} /> {deleteLabel}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Confirmation modal for the permanent delete of a tweet/article.
+function ConfirmDeleteModal({ target, deleting, onConfirm, onCancel }) {
+  const safeCancel = () => { if (!deleting) onCancel(); };
+  useEscapeKey(!!target, safeCancel);
+  if (!target) return null;
+  const isArticle = target.type === 'article';
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+         style={{ background: 'rgba(91,112,131,0.4)' }} onClick={safeCancel}>
+      <div className="w-full max-w-sm rounded-2xl p-6"
+           style={{ background: '#000', border: '1px solid #2f3336' }}
+           onClick={(e) => e.stopPropagation()}>
+        <h3 className="font-black text-xl mb-1.5" style={{ color: '#e7e9ea' }}>
+          {isArticle ? 'Delete article?' : 'Delete post?'}
+        </h3>
+        <p className="text-sm mb-5" style={{ color: '#71767b' }}>
+          This can't be undone and it will be removed permanently.
+        </p>
+        <div className="flex flex-col gap-2.5">
+          <button onClick={onConfirm} disabled={deleting}
+                  className="w-full py-2.5 rounded-full font-bold text-sm flex items-center justify-center gap-2"
+                  style={{ background: '#ef4444', color: 'white', opacity: deleting ? 0.6 : 1 }}>
+            {deleting && <Loader2 size={14} className="animate-spin" />}
+            Delete
+          </button>
+          <button onClick={onCancel} disabled={deleting}
+                  className="w-full py-2.5 rounded-full font-bold text-sm"
+                  style={{ background: 'transparent', border: '1px solid #536471', color: '#e7e9ea', opacity: deleting ? 0.5 : 1 }}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1329,6 +1408,8 @@ export default function App() {
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [lightbox, setLightbox] = useState(null); // { items, index }
+  const [deleteTarget, setDeleteTarget] = useState(null); // { id, type }
+  const [deleting, setDeleting] = useState(false);
   const [notifPermission, setNotifPermission] = useState(
     typeof Notification !== 'undefined' ? Notification.permission : 'denied'
   );
@@ -1597,6 +1678,33 @@ export default function App() {
     catch (e) { setArticles(prev); showToast(e.message, <AlertCircle size={16} />, true); }
   };
 
+  // ── Permanent delete (tweets + articles), gated behind ConfirmDeleteModal.
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget || deleting) return;
+    const { id, type } = deleteTarget;
+    setDeleting(true);
+    try {
+      if (type === 'article') {
+        const prev = articles;
+        setArticles(as => as.filter(a => a.id !== id));
+        try { await api.deleteArticle(id); }
+        catch (e) { setArticles(prev); throw e; }
+        if (view === 'article-reader' && articleReaderId === id) closeArticleReader();
+      } else {
+        const prev = tweets;
+        setTweets(ts => ts.filter(t => t.id !== id));
+        try { await api.deleteTweet(id); }
+        catch (e) { setTweets(prev); throw e; }
+      }
+      setDeleteTarget(null);
+      showToast('Post deleted', <Trash2 size={16} />);
+    } catch (e) {
+      showToast(e.message || 'Delete failed', <AlertCircle size={16} />, true);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   // ── Derived
   const inFeed         = tweets.filter(t => t.status === 'pending');
   const urgentTweets   = inFeed.filter(t => t.urgent);
@@ -1662,7 +1770,8 @@ export default function App() {
                          onUndo={handleUndo}
                          onMarkPosted={handleMarkPostedTweet} onUndoPosted={handleUndoPostedTweet}
                          onOpenComments={setCommentTarget}
-                         onOpenLightbox={(items, index) => setLightbox({ items, index })} />
+                         onOpenLightbox={(items, index) => setLightbox({ items, index })}
+                         onRequestDelete={() => setDeleteTarget({ id: current.id, type: 'tweet' })} />
               <div className="mt-6 mb-4 text-center text-sm" style={{ color: '#71767b' }}>Swipe right to approve · Swipe left to reject</div>
             </div>
           ) : (
@@ -1867,7 +1976,8 @@ export default function App() {
                              onUndo={handleUndoArticle}
                              onMarkPosted={handleMarkPostedArticle}
                              onUndoPosted={handleUndoPostedArticle}
-                             onOpenComments={(article) => setCommentTarget({ ...article, type: 'article' })} />
+                             onOpenComments={(article) => setCommentTarget({ ...article, type: 'article' })}
+                             onRequestDelete={(id) => setDeleteTarget({ id, type: 'article' })} />
             ) :
              view === 'analytics' ? <AnalyticsView tweets={tweets} /> :
              view === 'profile'   ? <ProfileView me={me} onLogout={handleLogout} onEdit={() => setEditProfileOpen(true)} tweets={tweets.filter(t => t.author_id === me.id)} /> :
@@ -1881,7 +1991,8 @@ export default function App() {
                                     onUndo={handleUndoArticle}
                                     onMarkPosted={handleMarkPostedArticle}
                                     onUndoPosted={handleUndoPostedArticle}
-                                    onOpenComments={(a) => setCommentTarget({ ...a, type: 'article' })} />
+                                    onOpenComments={(a) => setCommentTarget({ ...a, type: 'article' })}
+                                    onRequestDelete={() => setDeleteTarget({ id: item.id, type: 'article' })} />
                  ) : (
                    <TweetCard key={`t-${item.id}`} tweet={item} me={me}
                               isDecided={item.status === 'approved' || item.status === 'rejected'}
@@ -1889,7 +2000,8 @@ export default function App() {
                               onUndo={handleUndo}
                               onMarkPosted={handleMarkPostedTweet} onUndoPosted={handleUndoPostedTweet}
                               onOpenComments={setCommentTarget}
-                              onOpenLightbox={(items, index) => setLightbox({ items, index })} />
+                              onOpenLightbox={(items, index) => setLightbox({ items, index })}
+                              onRequestDelete={() => setDeleteTarget({ id: item.id, type: 'tweet' })} />
                  )
                ))
              ) : (
@@ -2004,6 +2116,9 @@ export default function App() {
       <Lightbox lightbox={lightbox}
                 setIndex={(i) => setLightbox(lb => lb ? { ...lb, index: i } : lb)}
                 onClose={() => setLightbox(null)} />
+      <ConfirmDeleteModal target={deleteTarget} deleting={deleting}
+                          onConfirm={handleConfirmDelete}
+                          onCancel={() => setDeleteTarget(null)} />
       <Toast toast={toast} />
     </div>
   );
@@ -2600,7 +2715,7 @@ function ArticleComposer({ open, me, onClose, onSubmit }) {
 
 // Inline article view — rendered in the main feed column when view === 'article-reader'.
 // It does NOT overlay the page; left and right sidebars stay visible and clickable.
-function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, onUndo, onMarkPosted, onUndoPosted, onOpenComments }) {
+function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, onUndo, onMarkPosted, onUndoPosted, onOpenComments, onRequestDelete }) {
   const article = articleId ? articles.find(a => a.id === articleId) : null;
   useEscapeKey(!!article, onClose);
   if (!article) {
@@ -2637,6 +2752,9 @@ function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, 
           <ArrowLeft size={20} />
         </button>
         <div className="font-bold text-[17px]" style={{ color: '#e7e9ea' }}>Article</div>
+        <div className="ml-auto">
+          <PostMenu deleteLabel="Delete article" onDelete={() => onRequestDelete(article.id)} />
+        </div>
       </header>
 
       <article className="px-4 py-4">

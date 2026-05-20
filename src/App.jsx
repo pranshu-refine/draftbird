@@ -313,19 +313,19 @@ function TweetCard({ tweet, me, isDecided, onApprove, onReject, onUndo, onMarkPo
               </button>
             )}
 
-            <div className="mt-3 flex items-center gap-2 flex-wrap -ml-2">
+            <div className="mt-3 flex items-center justify-between" style={{ minHeight: 34 }}>
               {canAct ? (
                 <>
+                  <ActionButton icon={MessageCircle} label={tweet.comments?.length || ''} hex="#1d9bf0"
+                                onClick={() => onOpenComments(tweet)} />
                   <ActionButton icon={Check} label="Approve" hex="#00ba7c"
                                 onClick={() => { setExiting('right'); setTimeout(() => onApprove(tweet.id), 200); }} />
                   <ActionButton icon={X} label="Reject" hex="#f4212e"
                                 onClick={() => { setExiting('left'); setTimeout(() => onReject(tweet.id), 200); }} />
-                  <ActionButton icon={MessageCircle} label={tweet.comments?.length || ''} hex="#1d9bf0"
-                                onClick={() => onOpenComments(tweet)} />
                 </>
               ) : isPosted ? (
-                <>
-                  <span className="flex items-center gap-1.5 text-sm font-semibold px-2.5 py-1 rounded-full pl-2"
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="flex items-center gap-1.5 text-sm font-semibold px-2.5 py-1 rounded-full"
                         style={{ background: 'rgba(0,186,124,0.15)', color: '#00ba7c' }}>
                     <Send size={14} /> Posted
                   </span>
@@ -336,10 +336,10 @@ function TweetCard({ tweet, me, isDecided, onApprove, onReject, onUndo, onMarkPo
                           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
                     <Undo2 size={14} /> Undo
                   </button>
-                </>
+                </div>
               ) : (
-                <>
-                  <div className="flex items-center gap-2 text-sm pl-2"
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 text-sm"
                        style={{ color: tweet.status === 'approved' ? '#00ba7c' : '#f4212e' }}>
                     {tweet.status === 'approved' ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
                     <span className="font-semibold">{tweet.status === 'approved' ? 'Approved' : 'Rejected'}</span>
@@ -360,7 +360,7 @@ function TweetCard({ tweet, me, isDecided, onApprove, onReject, onUndo, onMarkPo
                           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
                     <Undo2 size={14} /> Undo
                   </button>
-                </>
+                </div>
               )}
             </div>
           </div>
@@ -449,7 +449,7 @@ function ArticleFeedCard({ article, me, onOpen, onApprove, onReject, onUndo, onM
           )}
 
           {/* Action bar (outside the card) */}
-          <div className="mt-3 flex items-center gap-2 flex-wrap -ml-2">
+          <div className="mt-3 flex items-center justify-between" style={{ minHeight: 34 }}>
             {canAct ? (
               <>
                 <ActionButton icon={MessageCircle} label={commentCount || ''} hex="#1d9bf0"
@@ -463,43 +463,47 @@ function ArticleFeedCard({ article, me, onOpen, onApprove, onReject, onUndo, onM
               <>
                 <ActionButton icon={MessageCircle} label={commentCount || ''} hex="#1d9bf0"
                               onClick={() => onOpenComments(article)} />
-                <span className="flex items-center gap-1.5 text-sm font-semibold px-2.5 py-1 rounded-full"
-                      style={{ background: 'rgba(0,186,124,0.15)', color: '#00ba7c' }}>
-                  <Send size={14} /> Posted
-                </span>
-                <button onClick={(e) => { e.stopPropagation(); onUndoPosted(article.id); }}
-                        className="text-sm font-semibold flex items-center gap-1.5 px-3 py-1 rounded-full transition"
-                        style={{ color: '#1d9bf0' }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(29,155,240,0.1)'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-                  <Undo2 size={14} /> Undo
-                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="flex items-center gap-1.5 text-sm font-semibold px-2.5 py-1 rounded-full"
+                        style={{ background: 'rgba(0,186,124,0.15)', color: '#00ba7c' }}>
+                    <Send size={14} /> Posted
+                  </span>
+                  <button onClick={(e) => { e.stopPropagation(); onUndoPosted(article.id); }}
+                          className="text-sm font-semibold flex items-center gap-1.5 px-3 py-1 rounded-full transition"
+                          style={{ color: '#1d9bf0' }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(29,155,240,0.1)'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                    <Undo2 size={14} /> Undo
+                  </button>
+                </div>
               </>
             ) : isDecided ? (
               <>
                 <ActionButton icon={MessageCircle} label={commentCount || ''} hex="#1d9bf0"
                               onClick={() => onOpenComments(article)} />
-                <div className="flex items-center gap-2 text-sm"
-                     style={{ color: article.status === 'approved' ? '#00ba7c' : '#f4212e' }}>
-                  {article.status === 'approved' ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
-                  <span className="font-semibold">{article.status === 'approved' ? 'Approved' : 'Rejected'}</span>
-                </div>
-                {article.status === 'approved' && (
-                  <button onClick={(e) => { e.stopPropagation(); onMarkPosted(article); }}
-                          className="text-sm font-bold flex items-center gap-1.5 px-3 py-1 rounded-full transition"
-                          style={{ background: '#1d9bf0', color: 'white' }}
-                          onMouseEnter={(e) => e.currentTarget.style.background = '#1a8cd8'}
-                          onMouseLeave={(e) => e.currentTarget.style.background = '#1d9bf0'}>
-                    <Send size={14} /> Mark as posted
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 text-sm"
+                       style={{ color: article.status === 'approved' ? '#00ba7c' : '#f4212e' }}>
+                    {article.status === 'approved' ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+                    <span className="font-semibold">{article.status === 'approved' ? 'Approved' : 'Rejected'}</span>
+                  </div>
+                  {article.status === 'approved' && (
+                    <button onClick={(e) => { e.stopPropagation(); onMarkPosted(article); }}
+                            className="text-sm font-bold flex items-center gap-1.5 px-3 py-1 rounded-full transition"
+                            style={{ background: '#1d9bf0', color: 'white' }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = '#1a8cd8'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = '#1d9bf0'}>
+                      <Send size={14} /> Mark as posted
+                    </button>
+                  )}
+                  <button onClick={(e) => { e.stopPropagation(); onUndo(article.id); }}
+                          className="text-sm font-semibold flex items-center gap-1.5 px-3 py-1 rounded-full transition"
+                          style={{ color: '#1d9bf0' }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(29,155,240,0.1)'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                    <Undo2 size={14} /> Undo
                   </button>
-                )}
-                <button onClick={(e) => { e.stopPropagation(); onUndo(article.id); }}
-                        className="text-sm font-semibold flex items-center gap-1.5 px-3 py-1 rounded-full transition"
-                        style={{ color: '#1d9bf0' }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(29,155,240,0.1)'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-                  <Undo2 size={14} /> Undo
-                </button>
+                </div>
               </>
             ) : (
               <>
@@ -517,17 +521,19 @@ function ArticleFeedCard({ article, me, onOpen, onApprove, onReject, onUndo, onM
   );
 }
 
+// A single action-bar button: icon + optional label, rendered as a full pill
+// that tints its background and shifts colour on hover. Used in TweetCard,
+// ArticleFeedCard, and ArticleReader action bars.
 function ActionButton({ icon: Icon, label, hex, onClick, active }) {
   const [hover, setHover] = useState(false);
+  const lit = hover || active;
   return (
     <button onClick={(e) => { e.stopPropagation(); onClick(); }}
             onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
-            className="group flex items-center gap-0.5 text-[13px] transition-colors"
-            style={{ color: hover || active ? hex : '#71767b' }}>
-      <span className="p-2 rounded-full transition-colors" style={{ background: hover ? `${hex}26` : 'transparent' }}>
-        <Icon size={18.75} fill={active ? 'currentColor' : 'none'} strokeWidth={2} />
-      </span>
-      {label !== undefined && label !== '' && <span className="px-1">{label}</span>}
+            className="flex items-center gap-1.5 text-[13px] font-medium rounded-full transition-colors px-3 shrink-0"
+            style={{ color: lit ? hex : '#71767b', background: hover ? `${hex}1f` : 'transparent', height: 34 }}>
+      <Icon size={18} fill={active ? 'currentColor' : 'none'} strokeWidth={2} />
+      {label !== undefined && label !== '' && <span>{label}</span>}
     </button>
   );
 }
@@ -2806,69 +2812,67 @@ function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, 
 
         <div className="article-body" dangerouslySetInnerHTML={{ __html: article.content || '<p><em>Empty article.</em></p>' }} />
 
-        {/* Action bar — matches TweetCard. Approve/Reject for pending non-authors. */}
-        <div className="mt-10 pt-3 flex items-center justify-between flex-wrap gap-y-2"
-             style={{ borderTop: '1px solid #2f3336' }}>
-          <div className="flex items-center gap-1 sm:gap-2 -ml-2">
-            <ActionButton icon={MessageCircle} label={commentCount || ''} hex="#1d9bf0"
-                          onClick={() => onOpenComments(article)} />
+        {/* Action bar — actions spread evenly across the full width, X-style. */}
+        <div className="mt-8 pt-3 flex items-center justify-between flex-wrap gap-y-2"
+             style={{ borderTop: '1px solid #2f3336', minHeight: 46 }}>
+          <ActionButton icon={MessageCircle} label={commentCount || ''} hex="#1d9bf0"
+                        onClick={() => onOpenComments(article)} />
 
-            {canAct ? (
-              <>
-                <ActionButton icon={Check} label="Approve" hex="#00ba7c"
-                              onClick={() => onApprove(article.id)} />
-                <ActionButton icon={X} label="Reject" hex="#f4212e"
-                              onClick={() => onReject(article.id)} />
-              </>
-            ) : isPosted ? (
-              <>
-                <span className="flex items-center gap-1.5 text-sm font-semibold px-2.5 py-1 rounded-full ml-1"
-                      style={{ background: 'rgba(0,186,124,0.15)', color: '#00ba7c' }}>
-                  <Send size={14} /> Posted
-                </span>
-                <button onClick={() => onUndoPosted(article.id)}
-                        className="text-sm font-semibold px-3 py-1 rounded-full"
-                        style={{ color: '#1d9bf0' }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(29,155,240,0.1)'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-                  Undo
-                </button>
-              </>
-            ) : isDecided ? (
-              <div className="flex items-center gap-2 px-2 text-sm"
-                   style={{ color: article.status === 'approved' ? '#00ba7c' : '#f4212e' }}>
-                {article.status === 'approved' ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
-                <span className="font-semibold">{article.status === 'approved' ? 'Approved' : 'Rejected'}</span>
-                {article.status === 'approved' && (
-                  <button onClick={() => onMarkPosted(article)}
-                          className="ml-1 text-sm font-bold flex items-center gap-1.5 px-3 py-1 rounded-full transition"
-                          style={{ background: '#1d9bf0', color: 'white' }}
-                          onMouseEnter={(e) => e.currentTarget.style.background = '#1a8cd8'}
-                          onMouseLeave={(e) => e.currentTarget.style.background = '#1d9bf0'}>
-                    <Send size={14} /> Mark as posted
-                  </button>
-                )}
-                <button onClick={() => onUndo(article.id)}
-                        className="ml-1 text-sm font-semibold px-2 py-1 rounded-full"
-                        style={{ color: '#1d9bf0' }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(29,155,240,0.1)'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-                  Undo
-                </button>
-              </div>
-            ) : (
-              <span className="flex items-center gap-1.5 text-sm font-semibold px-2 ml-1"
-                    style={{ color: '#71767b' }}>
-                <Clock size={16} /> Pending review
+          {canAct ? (
+            <>
+              <ActionButton icon={Check} label="Approve" hex="#00ba7c"
+                            onClick={() => onApprove(article.id)} />
+              <ActionButton icon={X} label="Reject" hex="#f4212e"
+                            onClick={() => onReject(article.id)} />
+            </>
+          ) : isPosted ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="flex items-center gap-1.5 text-sm font-semibold px-2.5 py-1 rounded-full"
+                    style={{ background: 'rgba(0,186,124,0.15)', color: '#00ba7c' }}>
+                <Send size={14} /> Posted
               </span>
-            )}
-          </div>
+              <button onClick={() => onUndoPosted(article.id)}
+                      className="text-sm font-semibold px-3 py-1 rounded-full"
+                      style={{ color: '#1d9bf0' }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(29,155,240,0.1)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                Undo
+              </button>
+            </div>
+          ) : isDecided ? (
+            <div className="flex items-center gap-2 flex-wrap text-sm">
+              <span className="flex items-center gap-2 font-semibold"
+                    style={{ color: article.status === 'approved' ? '#00ba7c' : '#f4212e' }}>
+                {article.status === 'approved' ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+                {article.status === 'approved' ? 'Approved' : 'Rejected'}
+              </span>
+              {article.status === 'approved' && (
+                <button onClick={() => onMarkPosted(article)}
+                        className="text-sm font-bold flex items-center gap-1.5 px-3 py-1 rounded-full transition"
+                        style={{ background: '#1d9bf0', color: 'white' }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#1a8cd8'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = '#1d9bf0'}>
+                  <Send size={14} /> Mark as posted
+                </button>
+              )}
+              <button onClick={() => onUndo(article.id)}
+                      className="text-sm font-semibold px-2 py-1 rounded-full"
+                      style={{ color: '#1d9bf0' }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(29,155,240,0.1)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                Undo
+              </button>
+            </div>
+          ) : (
+            <span className="flex items-center gap-1.5 text-sm font-semibold"
+                  style={{ color: '#71767b' }}>
+              <Clock size={16} /> Pending review
+            </span>
+          )}
 
-          <div className="flex items-center gap-1 sm:gap-2 -mr-2">
-            <ActionButton icon={BarChart3} label={rt.words.toLocaleString()} hex="#1d9bf0"
-                          onClick={() => {}} />
-            <ActionButton icon={Share2} hex="#1d9bf0" onClick={handleCopyLink} />
-          </div>
+          <ActionButton icon={BarChart3} label={rt.words.toLocaleString()} hex="#1d9bf0"
+                        onClick={() => {}} />
+          <ActionButton icon={Share2} hex="#1d9bf0" onClick={handleCopyLink} />
         </div>
       </article>
     </div>

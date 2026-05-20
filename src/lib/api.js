@@ -277,6 +277,22 @@ export async function undoDecision(id) {
   if (error) throw error;
 }
 
+export async function markTweetAsPosted(id) {
+  const { error } = await supabase
+    .from('tweets')
+    .update({ status: 'posted' })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+export async function undoTweetPosted(id) {
+  const { error } = await supabase
+    .from('tweets')
+    .update({ status: 'approved' })
+    .eq('id', id);
+  if (error) throw error;
+}
+
 export async function deleteTweet(id) {
   const { error } = await supabase.from('tweets').delete().eq('id', id);
   if (error) throw error;
@@ -422,6 +438,22 @@ export async function undoArticleDecision(id) {
   const { error } = await supabase
     .from('articles')
     .update({ status: 'pending', rejection_note: null })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+export async function markArticleAsPosted(id) {
+  const { error } = await supabase
+    .from('articles')
+    .update({ status: 'posted' })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+export async function undoArticlePosted(id) {
+  const { error } = await supabase
+    .from('articles')
+    .update({ status: 'approved' })
     .eq('id', id);
   if (error) throw error;
 }

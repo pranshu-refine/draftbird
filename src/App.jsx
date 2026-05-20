@@ -5,7 +5,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
-  Check, X, MessageCircle, Bookmark, Image as ImageIcon,
+  Check, X, MessageCircle, Image as ImageIcon,
   MoreHorizontal, Search, Home,
   PenSquare, BarChart3, Send, ArrowLeft,
   Zap, Clock, CheckCircle2, XCircle,
@@ -13,7 +13,7 @@ import {
   User as UserIcon, Eye, EyeOff, Undo2, AlertCircle, Lock, Camera,
   TrendingUp, Users, ChevronRight, MoreHorizontal as More,
   Newspaper, Bold, Italic, Heading1, Heading2, Quote, List, ListOrdered, Code, ImagePlus,
-  Pencil, ChevronLeft, Heart, Repeat2, Share2
+  Pencil, ChevronLeft, Share2
 } from 'lucide-react';
 
 import * as api from './lib/api';
@@ -209,13 +209,13 @@ function timeAgo(iso) {
 //  Tweet Card
 // ════════════════════════════════════════════════════════════════
 
-function TweetCard({ tweet, me, isDecided, onApprove, onReject, onSave, onUndo, savedIds, onOpenComments, onOpenLightbox }) {
+function TweetCard({ tweet, me, isDecided, onApprove, onReject, onUndo, onMarkPosted, onUndoPosted, onOpenComments, onOpenLightbox }) {
   const [swipeX, setSwipeX] = useState(0);
   const [exiting, setExiting] = useState(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const touchStart = useRef(null);
-  const isSaved = savedIds.has(tweet.id);
-  const canAct = !isDecided;
+  const isPosted = tweet.status === 'posted';
+  const canAct = !isDecided && !isPosted;
   const author = tweet.author || { name: 'Unknown', handle: 'unknown', color: '#71767b' };
 
   const content = tweet.content || '';
@@ -310,7 +310,7 @@ function TweetCard({ tweet, me, isDecided, onApprove, onReject, onSave, onUndo, 
               </button>
             )}
 
-            <div className="mt-3 flex items-center justify-between max-w-md -ml-2">
+            <div className="mt-3 flex items-center gap-2 flex-wrap -ml-2">
               {canAct ? (
                 <>
                   <ActionButton icon={Check} label="Approve" hex="#00ba7c"
@@ -319,8 +319,20 @@ function TweetCard({ tweet, me, isDecided, onApprove, onReject, onSave, onUndo, 
                                 onClick={() => { setExiting('left'); setTimeout(() => onReject(tweet.id), 200); }} />
                   <ActionButton icon={MessageCircle} label={tweet.comments?.length || ''} hex="#1d9bf0"
                                 onClick={() => onOpenComments(tweet)} />
-                  <ActionButton icon={Bookmark} hex="#ffd400" active={isSaved}
-                                onClick={() => onSave(tweet.id)} />
+                </>
+              ) : isPosted ? (
+                <>
+                  <span className="flex items-center gap-1.5 text-sm font-semibold px-2.5 py-1 rounded-full pl-2"
+                        style={{ background: 'rgba(0,186,124,0.15)', color: '#00ba7c' }}>
+                    <Send size={14} /> Posted
+                  </span>
+                  <button onClick={(e) => { e.stopPropagation(); onUndoPosted(tweet.id); }}
+                          className="text-sm font-semibold flex items-center gap-1.5 px-3 py-1 rounded-full transition"
+                          style={{ color: '#1d9bf0' }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(29,155,240,0.1)'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                    <Undo2 size={14} /> Undo
+                  </button>
                 </>
               ) : (
                 <>
@@ -329,6 +341,15 @@ function TweetCard({ tweet, me, isDecided, onApprove, onReject, onSave, onUndo, 
                     {tweet.status === 'approved' ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
                     <span className="font-semibold">{tweet.status === 'approved' ? 'Approved' : 'Rejected'}</span>
                   </div>
+                  {tweet.status === 'approved' && (
+                    <button onClick={(e) => { e.stopPropagation(); onMarkPosted(tweet); }}
+                            className="text-sm font-bold flex items-center gap-1.5 px-3 py-1 rounded-full transition"
+                            style={{ background: '#1d9bf0', color: 'white' }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = '#1a8cd8'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = '#1d9bf0'}>
+                      <Send size={14} /> Mark as posted
+                    </button>
+                  )}
                   <button onClick={(e) => { e.stopPropagation(); onUndo(tweet.id); }}
                           className="text-sm font-semibold flex items-center gap-1.5 px-3 py-1 rounded-full transition"
                           style={{ color: '#1d9bf0' }}
@@ -352,10 +373,11 @@ function TweetCard({ tweet, me, isDecided, onApprove, onReject, onSave, onUndo, 
 //     title + subtitle. Clicking anywhere on the card body opens the reader.
 //   - Action bar OUTSIDE the card (Approve / Reject / Comment when actionable,
 //     Status + Undo when decided), matching TweetCard's action layout.
-function ArticleFeedCard({ article, me, onOpen, onApprove, onReject, onUndo, onOpenComments }) {
+function ArticleFeedCard({ article, me, onOpen, onApprove, onReject, onUndo, onMarkPosted, onUndoPosted, onOpenComments }) {
   const author = article.author || { name: 'Unknown', handle: 'unknown', color: '#71767b' };
   const isPending = article.status === 'pending';
   const isDecided = article.status === 'approved' || article.status === 'rejected';
+  const isPosted = article.status === 'posted';
   const canAct = isPending && article.author_id !== me.id;
   const commentCount = article.comments?.length || 0;
 
@@ -428,7 +450,7 @@ function ArticleFeedCard({ article, me, onOpen, onApprove, onReject, onUndo, onO
           )}
 
           {/* Action bar (outside the card) */}
-          <div className="mt-3 flex items-center justify-between max-w-md -ml-2">
+          <div className="mt-3 flex items-center gap-2 flex-wrap -ml-2">
             {canAct ? (
               <>
                 <ActionButton icon={MessageCircle} label={commentCount || ''} hex="#1d9bf0"
@@ -437,6 +459,22 @@ function ArticleFeedCard({ article, me, onOpen, onApprove, onReject, onUndo, onO
                               onClick={() => onApprove(article.id)} />
                 <ActionButton icon={X} label="Reject" hex="#f4212e"
                               onClick={() => onReject(article.id)} />
+              </>
+            ) : isPosted ? (
+              <>
+                <ActionButton icon={MessageCircle} label={commentCount || ''} hex="#1d9bf0"
+                              onClick={() => onOpenComments(article)} />
+                <span className="flex items-center gap-1.5 text-sm font-semibold px-2.5 py-1 rounded-full"
+                      style={{ background: 'rgba(0,186,124,0.15)', color: '#00ba7c' }}>
+                  <Send size={14} /> Posted
+                </span>
+                <button onClick={(e) => { e.stopPropagation(); onUndoPosted(article.id); }}
+                        className="text-sm font-semibold flex items-center gap-1.5 px-3 py-1 rounded-full transition"
+                        style={{ color: '#1d9bf0' }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(29,155,240,0.1)'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                  <Undo2 size={14} /> Undo
+                </button>
               </>
             ) : isDecided ? (
               <>
@@ -447,6 +485,15 @@ function ArticleFeedCard({ article, me, onOpen, onApprove, onReject, onUndo, onO
                   {article.status === 'approved' ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
                   <span className="font-semibold">{article.status === 'approved' ? 'Approved' : 'Rejected'}</span>
                 </div>
+                {article.status === 'approved' && (
+                  <button onClick={(e) => { e.stopPropagation(); onMarkPosted(article); }}
+                          className="text-sm font-bold flex items-center gap-1.5 px-3 py-1 rounded-full transition"
+                          style={{ background: '#1d9bf0', color: 'white' }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = '#1a8cd8'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = '#1d9bf0'}>
+                    <Send size={14} /> Mark as posted
+                  </button>
+                )}
                 <button onClick={(e) => { e.stopPropagation(); onUndo(article.id); }}
                         className="text-sm font-semibold flex items-center gap-1.5 px-3 py-1 rounded-full transition"
                         style={{ color: '#1d9bf0' }}
@@ -1022,9 +1069,16 @@ function Toast({ toast }) {
   if (!toast) return null;
   const bg = toast.error ? '#f4212e' : toast.variant === 'urgent' ? '#a855f7' : '#1d9bf0';
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] px-4 py-3 rounded-full font-semibold text-sm shadow-2xl flex items-center gap-2 max-w-[90vw]"
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] pl-4 pr-2 py-2.5 rounded-full font-semibold text-sm shadow-2xl flex items-center gap-2 max-w-[90vw]"
          style={{ background: bg, color: 'white', animation: 'slideUp 0.3s ease-out' }}>
       {toast.icon}<span className="truncate">{toast.text}</span>
+      {toast.action && (
+        <button onClick={toast.action.onClick}
+                className="ml-1 px-3 py-1 rounded-full font-bold text-sm shrink-0"
+                style={{ background: 'rgba(255,255,255,0.2)', color: 'white' }}>
+          {toast.action.label}
+        </button>
+      )}
     </div>
   );
 }
@@ -1264,7 +1318,6 @@ export default function App() {
     setView(articleReaderPrevView);
     setArticleReaderId(null);
   };
-  const [bookmarks, setBookmarks] = useState(new Set());
   const [view, setView] = useState('home');
   const [feedTab, setFeedTab] = useState('foryou');
   const [composerOpen, setComposerOpen] = useState(false);
@@ -1305,9 +1358,17 @@ export default function App() {
     };
   }, [profileOpen]);
 
-  const showToast = (text, icon, error = false, variant = 'default') => {
-    setToast({ text, icon, error, variant });
-    setTimeout(() => setToast(null), 2200);
+  // `action` is an optional { label, onClick } shown as a button in the toast
+  // (e.g. an Undo link). Action toasts stay up for 5s; plain toasts for 2.2s.
+  const toastTimer = useRef(null);
+  const showToast = (text, icon, error = false, variant = 'default', action = null) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ text, icon, error, variant, action });
+    toastTimer.current = setTimeout(() => setToast(null), action ? 5000 : 2200);
+  };
+  const dismissToast = () => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast(null);
   };
 
   // ── Auth bootstrap & subscription
@@ -1319,22 +1380,21 @@ export default function App() {
   // ── Load profile + initial data after sign-in
   useEffect(() => {
     if (!session?.user) {
-      setMe(null); setTweets([]); setArticles([]); setBookmarks(new Set()); setProfiles([]);
+      setMe(null); setTweets([]); setArticles([]); setProfiles([]);
       return;
     }
 
     let cancelled = false;
     (async () => {
       try {
-        const [p, ts, bm, ps, as] = await Promise.all([
+        const [p, ts, ps, as] = await Promise.all([
           api.getProfile(session.user.id),
           api.getTweets(),
-          api.getBookmarks(),
           api.getAllProfiles(),
           api.getArticles(),
         ]);
         if (cancelled) return;
-        setMe(p); setTweets(ts); setBookmarks(new Set(bm)); setProfiles(ps); setArticles(as);
+        setMe(p); setTweets(ts); setProfiles(ps); setArticles(as);
       } catch (e) {
         if (!cancelled) showToast(e.message || 'Failed to load', <AlertCircle size={16} />, true);
       }
@@ -1438,16 +1498,24 @@ export default function App() {
     try { await api.undoDecision(id); showToast('Restored', <Undo2 size={16} />); }
     catch (e) { setTweets(prev); showToast(e.message, <AlertCircle size={16} />, true); }
   };
-  const handleSave = async (id) => {
-    const wasSaved = bookmarks.has(id);
-    setBookmarks(prev => { const next = new Set(prev); if (wasSaved) next.delete(id); else next.add(id); return next; });
+  // ── Posted workflow (tweets) ──
+  const handleMarkPostedTweet = async (tweet) => {
+    const prev = tweets;
+    setTweets(ts => ts.map(t => t.id === tweet.id ? { ...t, status: 'posted' } : t));
     try {
-      await api.toggleBookmark(id, wasSaved);
-      showToast(wasSaved ? 'Removed from saved' : 'Saved', <Bookmark size={16} />);
+      await api.markTweetAsPosted(tweet.id);
+      showToast('Marked as posted', <Send size={16} />, false, 'default',
+        { label: 'Undo', onClick: () => { dismissToast(); handleUndoPostedTweet(tweet.id); } });
     } catch (e) {
-      setBookmarks(prev => { const next = new Set(prev); if (wasSaved) next.add(id); else next.delete(id); return next; });
+      setTweets(prev);
       showToast(e.message, <AlertCircle size={16} />, true);
     }
+  };
+  const handleUndoPostedTweet = async (id) => {
+    const prev = tweets;
+    setTweets(ts => ts.map(t => t.id === id ? { ...t, status: 'approved' } : t));
+    try { await api.undoTweetPosted(id); showToast('Moved back to Approved', <Undo2 size={16} />); }
+    catch (e) { setTweets(prev); showToast(e.message, <AlertCircle size={16} />, true); }
   };
   const handleAddComment = async (id, text, targetType = 'tweet') => {
     try {
@@ -1507,6 +1575,25 @@ export default function App() {
     const prev = articles;
     setArticles(as => as.map(a => a.id === id ? { ...a, status: 'pending' } : a));
     try { await api.undoArticleDecision(id); }
+    catch (e) { setArticles(prev); showToast(e.message, <AlertCircle size={16} />, true); }
+  };
+  // ── Posted workflow (articles) ──
+  const handleMarkPostedArticle = async (article) => {
+    const prev = articles;
+    setArticles(as => as.map(a => a.id === article.id ? { ...a, status: 'posted' } : a));
+    try {
+      await api.markArticleAsPosted(article.id);
+      showToast('Marked as posted', <Send size={16} />, false, 'default',
+        { label: 'Undo', onClick: () => { dismissToast(); handleUndoPostedArticle(article.id); } });
+    } catch (e) {
+      setArticles(prev);
+      showToast(e.message, <AlertCircle size={16} />, true);
+    }
+  };
+  const handleUndoPostedArticle = async (id) => {
+    const prev = articles;
+    setArticles(as => as.map(a => a.id === id ? { ...a, status: 'approved' } : a));
+    try { await api.undoArticlePosted(id); showToast('Moved back to Approved', <Undo2 size={16} />); }
     catch (e) { setArticles(prev); showToast(e.message, <AlertCircle size={16} />, true); }
   };
 
@@ -1572,7 +1659,8 @@ export default function App() {
           {current ? (
             <div className="w-full max-w-xl" style={{ border: '1px solid #2f3336', borderRadius: 16, overflow: 'hidden' }}>
               <TweetCard tweet={current} me={me} onApprove={handleApprove} onReject={handleReject}
-                         onSave={handleSave} onUndo={handleUndo} savedIds={bookmarks}
+                         onUndo={handleUndo}
+                         onMarkPosted={handleMarkPostedTweet} onUndoPosted={handleUndoPostedTweet}
                          onOpenComments={setCommentTarget}
                          onOpenLightbox={(items, index) => setLightbox({ items, index })} />
               <div className="mt-6 mb-4 text-center text-sm" style={{ color: '#71767b' }}>Swipe right to approve · Swipe left to reject</div>
@@ -1597,7 +1685,7 @@ export default function App() {
     { key: 'urgent',    icon: Zap,          label: 'Urgent',    badge: urgentCount,             filled: true, badgeColor: '#ef4444', activeColor: '#ef4444' },
     { key: 'approved',  icon: CheckCircle2, label: 'Approved',  badge: 0,                       filled: true },
     { key: 'rejected',  icon: XCircle,      label: 'Rejected',  badge: 0,                       filled: true },
-    { key: 'saved',     icon: Bookmark,     label: 'Bookmarks', badge: bookmarks.size,          filled: true },
+    { key: 'posted',    icon: Send,         label: 'Posted',    badge: 0,                       filled: true },
     { key: 'analytics', icon: BarChart3,    label: 'Analytics', badge: 0 },
     { key: 'articles',  icon: Newspaper,    label: 'Articles',  badge: 0 },
     { key: 'profile',   icon: UserIcon,     label: 'Profile',   badge: 0 },
@@ -1613,11 +1701,11 @@ export default function App() {
     if (view === 'urgent')   return feedItems.filter(i => isPending(i) && i.urgent);
     if (view === 'approved') return feedItems.filter(i => i.status === 'approved');
     if (view === 'rejected') return feedItems.filter(i => i.status === 'rejected');
-    if (view === 'saved')    return feedItems.filter(i => i.type === 'tweet' && bookmarks.has(i.id));
+    if (view === 'posted')   return feedItems.filter(i => i.status === 'posted');
     return [];
   })();
 
-  const viewTitles = { home: 'Home', urgent: 'Urgent', approved: 'Approved', rejected: 'Rejected', saved: 'Bookmarks', analytics: 'Analytics', articles: 'Articles', profile: 'Profile' };
+  const viewTitles = { home: 'Home', urgent: 'Urgent', approved: 'Approved', rejected: 'Rejected', posted: 'Posted', analytics: 'Analytics', articles: 'Articles', profile: 'Profile' };
 
   return (
     <div className="min-h-screen" style={{ background: '#000', color: '#e7e9ea', fontFamily: '"Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, Roboto, Helvetica, Arial, sans-serif' }}>
@@ -1777,6 +1865,8 @@ export default function App() {
                              onApprove={handleApproveArticle}
                              onReject={handleRejectArticle}
                              onUndo={handleUndoArticle}
+                             onMarkPosted={handleMarkPostedArticle}
+                             onUndoPosted={handleUndoPostedArticle}
                              onOpenComments={(article) => setCommentTarget({ ...article, type: 'article' })} />
             ) :
              view === 'analytics' ? <AnalyticsView tweets={tweets} /> :
@@ -1789,29 +1879,32 @@ export default function App() {
                                     onApprove={handleApproveArticle}
                                     onReject={handleRejectArticle}
                                     onUndo={handleUndoArticle}
+                                    onMarkPosted={handleMarkPostedArticle}
+                                    onUndoPosted={handleUndoPostedArticle}
                                     onOpenComments={(a) => setCommentTarget({ ...a, type: 'article' })} />
                  ) : (
                    <TweetCard key={`t-${item.id}`} tweet={item} me={me}
                               isDecided={item.status === 'approved' || item.status === 'rejected'}
                               onApprove={handleApprove} onReject={handleReject}
-                              onSave={handleSave} onUndo={handleUndo}
-                              savedIds={bookmarks} onOpenComments={setCommentTarget}
+                              onUndo={handleUndo}
+                              onMarkPosted={handleMarkPostedTweet} onUndoPosted={handleUndoPostedTweet}
+                              onOpenComments={setCommentTarget}
                               onOpenLightbox={(items, index) => setLightbox({ items, index })} />
                  )
                ))
              ) : (
                <EmptyState
-                 icon={view === 'approved' ? CheckCircle2 : view === 'rejected' ? XCircle : view === 'saved' ? Bookmark : CheckCircle2}
+                 icon={view === 'approved' ? CheckCircle2 : view === 'rejected' ? XCircle : view === 'posted' ? Send : CheckCircle2}
                  title={view === 'home' ? "You're all caught up" :
                         view === 'urgent' ? "No urgent tweets" :
                         view === 'approved' ? "Nothing approved yet" :
                         view === 'rejected' ? "Nothing rejected" :
-                        view === 'saved' ? "Nothing saved" : ""}
+                        view === 'posted' ? "Nothing posted yet" : ""}
                  sub={view === 'home' ? "Be the first to post — what's happening?" :
                       view === 'urgent' ? "Time-sensitive content shows up here" :
-                      view === 'approved' ? "Approved tweets land here once you green-light them" :
+                      view === 'approved' ? "Approved items land here once you green-light them" :
                       view === 'rejected' ? "Rejected drafts move here so the feed stays focused" :
-                      view === 'saved' ? "Tap the bookmark on any tweet to save it" : ""} />
+                      view === 'posted' ? "Items you mark as posted to X show up here" : ""} />
              )}
           </div>
         </main>
@@ -2281,19 +2374,6 @@ function readingTime(html) {
   return { words, minutes: Math.max(1, Math.round(words / 200)) };
 }
 
-function ArticleStatusPill({ status }) {
-  const colors = {
-    pending:  { bg: 'rgba(113,118,123,0.15)', fg: '#a5acaf', label: 'Pending' },
-    approved: { bg: 'rgba(0,186,124,0.15)',   fg: '#00ba7c', label: 'Approved' },
-    rejected: { bg: 'rgba(244,33,46,0.15)',   fg: '#ff8e95', label: 'Rejected' },
-    draft:    { bg: 'rgba(168,85,247,0.15)',  fg: '#c084fc', label: 'Draft' },
-  }[status] || { bg: '#2f3336', fg: '#71767b', label: status };
-  return (
-    <span className="px-2 py-0.5 rounded-full text-[11px] font-bold"
-          style={{ background: colors.bg, color: colors.fg }}>{colors.label}</span>
-  );
-}
-
 function TipTapToolbarButton({ icon: Icon, active, onClick, title }) {
   return (
     <button type="button" onClick={onClick} title={title}
@@ -2520,7 +2600,7 @@ function ArticleComposer({ open, me, onClose, onSubmit }) {
 
 // Inline article view — rendered in the main feed column when view === 'article-reader'.
 // It does NOT overlay the page; left and right sidebars stay visible and clickable.
-function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, onUndo, onOpenComments }) {
+function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, onUndo, onMarkPosted, onUndoPosted, onOpenComments }) {
   const article = articleId ? articles.find(a => a.id === articleId) : null;
   useEscapeKey(!!article, onClose);
   if (!article) {
@@ -2534,6 +2614,7 @@ function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, 
   const author = article.author || { name: 'Unknown', handle: 'unknown', color: '#71767b' };
   const rt = readingTime(article.content);
   const isDecided = article.status === 'approved' || article.status === 'rejected';
+  const isPosted = article.status === 'posted';
   const canAct = article.status === 'pending' && article.author_id !== me.id;
   const commentCount = article.comments?.length || 0;
 
@@ -2607,8 +2688,8 @@ function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, 
 
         <div className="article-body" dangerouslySetInnerHTML={{ __html: article.content || '<p><em>Empty article.</em></p>' }} />
 
-        {/* Action bar — matches TweetCard. Approve/Reject replace heart/retweet for pending non-authors. */}
-        <div className="mt-10 pt-3 flex items-center justify-between"
+        {/* Action bar — matches TweetCard. Approve/Reject for pending non-authors. */}
+        <div className="mt-10 pt-3 flex items-center justify-between flex-wrap gap-y-2"
              style={{ borderTop: '1px solid #2f3336' }}>
           <div className="flex items-center gap-1 sm:gap-2 -ml-2">
             <ActionButton icon={MessageCircle} label={commentCount || ''} hex="#1d9bf0"
@@ -2621,13 +2702,36 @@ function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, 
                 <ActionButton icon={X} label="Reject" hex="#f4212e"
                               onClick={() => onReject(article.id)} />
               </>
+            ) : isPosted ? (
+              <>
+                <span className="flex items-center gap-1.5 text-sm font-semibold px-2.5 py-1 rounded-full ml-1"
+                      style={{ background: 'rgba(0,186,124,0.15)', color: '#00ba7c' }}>
+                  <Send size={14} /> Posted
+                </span>
+                <button onClick={() => onUndoPosted(article.id)}
+                        className="text-sm font-semibold px-3 py-1 rounded-full"
+                        style={{ color: '#1d9bf0' }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(29,155,240,0.1)'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                  Undo
+                </button>
+              </>
             ) : isDecided ? (
               <div className="flex items-center gap-2 px-2 text-sm"
                    style={{ color: article.status === 'approved' ? '#00ba7c' : '#f4212e' }}>
                 {article.status === 'approved' ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
                 <span className="font-semibold">{article.status === 'approved' ? 'Approved' : 'Rejected'}</span>
+                {article.status === 'approved' && (
+                  <button onClick={() => onMarkPosted(article)}
+                          className="ml-1 text-sm font-bold flex items-center gap-1.5 px-3 py-1 rounded-full transition"
+                          style={{ background: '#1d9bf0', color: 'white' }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = '#1a8cd8'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = '#1d9bf0'}>
+                    <Send size={14} /> Mark as posted
+                  </button>
+                )}
                 <button onClick={() => onUndo(article.id)}
-                        className="ml-2 text-sm font-semibold px-2 py-1 rounded-full"
+                        className="ml-1 text-sm font-semibold px-2 py-1 rounded-full"
                         style={{ color: '#1d9bf0' }}
                         onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(29,155,240,0.1)'}
                         onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
@@ -2635,18 +2739,16 @@ function ArticleReader({ articleId, articles, me, onClose, onApprove, onReject, 
                 </button>
               </div>
             ) : (
-              <ActionButton icon={Repeat2} label="" hex="#00ba7c" onClick={() => {}} />
-            )}
-
-            {!canAct && !isDecided && (
-              <ActionButton icon={Heart} label="" hex="#f91880" onClick={() => {}} />
+              <span className="flex items-center gap-1.5 text-sm font-semibold px-2 ml-1"
+                    style={{ color: '#71767b' }}>
+                <Clock size={16} /> Pending review
+              </span>
             )}
           </div>
 
           <div className="flex items-center gap-1 sm:gap-2 -mr-2">
             <ActionButton icon={BarChart3} label={rt.words.toLocaleString()} hex="#1d9bf0"
                           onClick={() => {}} />
-            <ActionButton icon={Bookmark} hex="#ffd400" onClick={() => {}} />
             <ActionButton icon={Share2} hex="#1d9bf0" onClick={handleCopyLink} />
           </div>
         </div>
